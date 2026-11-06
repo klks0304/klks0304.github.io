@@ -211,7 +211,7 @@ const astronautQuotes = [
 
 const state = {
   sol: 0, running: false, paused: false, speed: 1, interval: null,
-  focus: null, phase: 'launch', // launch → cruise → experiments → return
+  focus: null, phase: 'launch',
   experimentsDone: 0,
   profession: null, location: null, isCommander: false,
   commanderMistakes: 0, dissentCount: 0,
@@ -316,7 +316,6 @@ function advanceOneSol() {
 
   if (Math.random() < 0.15) triggerRandomEvent();
 
-  // Phase progression
   if (state.phase === 'launch' && state.sol >= 8) {
     state.phase = 'cruise';
     addLog("Reached cruise phase. Time to perform science experiments.");
