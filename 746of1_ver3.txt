@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>746of1 — Be One of the Astronauts</title>
+  <style>
+    :root {
+      --bg: #0b0f1a; --card: #151b2d; --accent: #3b82f6;
+      --danger: #ef4444; --ok: #22c55e; --warn: #eab308; --text: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 16px; line-height: 1.5;
+    }
+    .container { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; border: 1px solid #1e293b;
+    }
+    .bars { display: grid; gap: 8px; }
+    .bar-row { display: flex; align-items: center; gap: 8px; }
+    .bar-label { width: 110px; font-size: 0.85rem; }
+    .bar-bg { flex: 1; height: 14px; background: #1e293b; border-radius: 7px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 7px; transition: width 0.3s; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button {
+      background: var(--accent); color: white; border: none;
+      padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.95rem;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #334155; }
+    button.danger { background: var(--danger); }
+    .focus-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .event {
+      background: #1e293b; border-left: 4px solid var(--warn);
+      padding: 14px; margin: 12px 0; border-radius: 0 8px 8px 0;
+    }
+    .log {
+      max-height: 160px; overflow-y: auto; font-size: 0.85rem;
+      background: #0f172a; padding: 10px; border-radius: 8px;
+    }
+    .log div { margin-bottom: 4px; opacity: 0.9; }
+    .hidden { display: none; }
+    .status { font-size: 0.9rem; color: #94a3b8; margin-bottom: 12px; }
+    .role-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 600; margin-left: 6px;
+    }
+    .commander { background: #f59e0b; color: #000; }
+    .member { background: #64748b; color: white; }
+    .birth-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid #334155; border-radius: 12px; padding: 20px;
+    }
+    .vote-result { font-size: 0.9rem; margin: 10px 0; padding: 8px; background: #0f172a; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 746of1 — Be One of the Astronauts</h1>
+    <p class="status">Random profession × Real landing sites × Voting decisions × Teamwork education</p>
+
+    <!-- Birth screen -->
+    <div id="birth-screen" class="card">
+      <h2>Random Assignment Before Launch</h2>
+      <p>Inspired by the “1 in 8 billion” concept. The system will randomly assign your profession and first landing site.</p>
+      <button onclick="startBirth()">Start Random Assignment</button>
+    </div>
+
+    <!-- Birth result card -->
+    <div id="birth-result" class="hidden card birth-card">
+      <h2>Your Mission Identity Card</h2>
+      <div id="birth-info"></div>
+      <button style="margin-top:16px" onclick="startMission()">Confirm and Begin Mission</button>
+    </div>
+
+    <!-- Main game screen -->
+    <div id="game-screen" class="hidden">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div>
+            <strong>Sol <span id="sol">0</span></strong> / Target 50
+            <span id="role-display"></span>
+            <span id="speed-label"> · 1×</span>
+          </div>
+          <div class="controls" style="margin:0">
+            <button class="secondary" onclick="togglePause()">⏸ Pause</button>
+            <button class="secondary" onclick="setSpeed(1)">1×</button>
+            <button class="secondary" onclick="setSpeed(4)">4×</button>
+            <button class="secondary" onclick="setSpeed(8)">8×</button>
+          </div>
+        </div>
+        <div style="font-size:0.85rem;margin-top:6px;color:#94a3b8" id="player-info"></div>
+      </div>
+
+      <div class="card">
+        <h3>System Status</h3>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <div class="card">
+        <h3>Focus for This Sol</h3>
+        <div class="focus-btns" id="focus-btns"></div>
+      </div>
+
+      <div id="event-area" class="hidden"></div>
+
+      <div class="card">
+        <h3>Mission Log</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <!-- End screen -->
+    <div id="end-screen" class="hidden card">
+      <h2 id="end-title"></h2>
+      <div id="end-report"></div>
+      <button onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+
+<script>
+// ========== Data ==========
+const professions = [
+  { name: "Aerospace Engineer", commanderChance: 0.28 },
+  { name: "Scientist (Physics/Astronomy)", commanderChance: 0.18 },
+  { name: "Pilot / Test Pilot", commanderChance: 0.35 },
+  { name: "Doctor / Biomedical", commanderChance: 0.12 },
+  { name: "Geologist", commanderChance: 0.08 },
+  { name: "Teacher / Educator", commanderChance: 0.05 },
+  { name: "Computer Engineer", commanderChance: 0.15 },
+  { name: "Mechanical Engineer", commanderChance: 0.20 }
+];
+
+const locations = [
+  "Apollo 11 (Sea of Tranquility)", "Apollo 12", "Apollo 14", "Apollo 15",
+  "Apollo 16", "Apollo 17", "Curiosity (Gale Crater)",
+  "Spirit (Gusev Crater)", "Opportunity (Meridiani Planum)",
+  "Perseverance (Jezero Crater)", "Chang’e 5 Sampling Site", "Pathfinder (Ares Vallis)"
+];
+
+const focuses = [
+  { id: 'life', name: 'Maintain Life Support', desc: 'Oxygen & water recycling', effect: { oxygen: +3, water: +2, power: -2 } },
+  { id: 'power', name: 'Strengthen Power Systems', desc: 'Solar panels / batteries', effect: { power: +5, oxygen: -1 } },
+  { id: 'food', name: 'Expand Food Production', desc: 'Greenhouse optimization', effect: { food: +4, water: -2, power: -1 } },
+  { id: 'shield', name: 'Improve Radiation Shielding', desc: 'Shielding & scheduling', effect: { shield: +4, morale: +1, power: -2 } },
+  { id: 'morale', name: 'Boost Morale / Training', desc: 'Rest & simulation', effect: { morale: +5, food: -1 } },
+  { id: 'explore', name: 'Explore / Collect Resources', desc: 'High risk, high reward', effect: { food: +2, water: +3, power: -3, shield: -2, morale: +2 } }
+];
+
+// ========== State ==========
+const state = {
+  sol: 0, target: 50, running: false, paused: false, speed: 1, interval: null,
+  focus: null,
+  profession: null, location: null, isCommander: false,
+  commanderMistakes: 0, dissentCount: 0,
+  resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
+  log: []
+};
+
+// ========== Birth process ==========
+function startBirth() {
+  state.profession = professions[Math.floor(Math.random() * professions.length)];
+  state.location = locations[Math.floor(Math.random() * locations.length)];
+  state.isCommander = Math.random() < state.profession.commanderChance;
+
+  document.getElementById('birth-screen').classList.add('hidden');
+  document.getElementById('birth-result').classList.remove('hidden');
+
+  const roleText = state.isCommander
+    ? `<span class="role-badge commander">Commander</span>`
+    : `<span class="role-badge member">Crew Member</span>`;
+
+  document.getElementById('birth-info').innerHTML = `
+    <p><strong>Profession:</strong> ${state.profession.name}</p>
+    <p><strong>First Landing Site:</strong> ${state.location}</p>
+    <p><strong>Role:</strong> ${roleText}</p>
+    <p style="margin-top:12px;font-size:0.9rem;opacity:0.85">
+      Based on historical space mission statistics, the chance of a ${state.profession.name} becoming Commander is approximately 
+      ${(state.profession.commanderChance * 100).toFixed(0)}%.<br>
+      ${state.isCommander 
+        ? "You have been selected as Commander for this mission. You have final decision authority, but you are also responsible for mistakes." 
+        : "You are a regular crew member and can vote. Remember: teamwork is extremely important in space missions."}
+    </p>
+  `;
+}
+
+// ========== Start mission ==========
+function startMission() {
+  document.getElementById('birth-result').classList.add('hidden');
+  document.getElementById('game-screen').classList.remove('hidden');
+
+  document.getElementById('role-display').innerHTML = state.isCommander
+    ? `<span class="role-badge commander">Commander</span>`
+    : `<span class="role-badge member">Crew Member</span>`;
+
+  document.getElementById('player-info').textContent =
+    `${state.profession.name} · ${state.location}`;
+
+  state.running = true;
+  renderBars();
+  renderFocusButtons();
+  addLog(`Mission started! You are the ${state.isCommander ? "Commander" : "Crew Member"} (${state.profession.name})`);
+  state.interval = setInterval(tick, 1000);
+}
+
+// ========== Core logic ==========
+function tick() {
+  if (state.paused || !state.running) return;
+  for (let i = 0; i < state.speed; i++) {
+    advanceOneSol();
+    if (!state.running) break;
+  }
+  document.getElementById('sol').textContent = state.sol;
+  document.getElementById('speed-label').textContent = ` · ${state.speed}×`;
+  renderBars();
+}
+
+function advanceOneSol() {
+  state.sol++;
+
+  // Base consumption
+  state.resources.oxygen -= 1.6;
+  state.resources.power  -= 1.1;
+  state.resources.food   -= 1.4;
+  state.resources.water  -= 1.2;
+  state.resources.shield -= 0.35;
+  state.resources.morale -= 0.25;
+
+  // Focus effect
+  if (state.focus) {
+    const f = focuses.find(x => x.id === state.focus);
+    if (f) {
+      for (const [k, v] of Object.entries(f.effect)) {
+        state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+      }
+    }
+  }
+
+  // Random event (~15%)
+  if (Math.random() < 0.15) triggerRandomEvent();
+
+  // Failure checks
+  for (const [k, v] of Object.entries(state.resources)) {
+    if (v <= 0) {
+      endMission(false, `Critical system “${k}” has collapsed!`);
+      return;
+    }
+  }
+  if (state.commanderMistakes >= 3) {
+    endMission(false, "The Commander has made too many poor decisions. Mission failed.");
+    return;
+  }
+  if (state.sol >= state.target) {
+    endMission(true, "Successfully maintained the outpost for the target number of Sols!");
+  }
+}
+
+function chooseFocus(id) {
+  state.focus = id;
+  const f = focuses.find(x => x.id === id);
+  addLog(`Focus changed to: ${f.name}`);
+  renderFocusButtons();
+}
+
+// ========== Events & voting ==========
+function triggerRandomEvent() {
+  const events = [
+    {
+      title: "Solar Flare Alert",
+      desc: "A strong particle event is approaching. Immediate action is required.",
+      lifeCritical: true,
+      options: [
+        { text: "All crew enter shielded area (safe but power-intensive)", good: true, effect: { shield: +10, power: -10, morale: -3 } },
+        { text: "Continue operations with increased monitoring (riskier)", good: false, effect: { shield: -15, morale: -5 } }
+      ]
+    },
+    {
+      title: "Severe Solar Panel Dust",
+      desc: "Power generation has dropped significantly.",
+      lifeCritical: false,
+      options: [
+        { text: "Send crew out to clean the panels", good: true, effect: { power: +18, oxygen: -5, morale: -2 } },
+        { text: "Rely on backup batteries for now", good: false, effect: { power: +5, food: -2 } }
+      ]
+    },
+    {
+      title: "Life Support System Alert",
+      desc: "Oxygen recycling efficiency has suddenly decreased.",
+      lifeCritical: true,
+      options: [
+        { text: "Initiate emergency repair procedures", good: true, effect: { oxygen: +12, power: -6, morale: -2 } },
+        { text: "Observe for a while before acting", good: false, effect: { oxygen: -10, morale: -4 } }
+      ]
+    },
+    {
+      title: "Dust Storm Approaching",
+      desc: "Visibility is extremely low and solar power is nearly useless.",
+      lifeCritical: false,
+      options: [
+        { text: "All crew stay inside and wait it out", good: true, effect: { power: -8, morale: -3, shield: +2 } },
+        { text: "Attempt limited outdoor work during the storm", good: false, effect: { power: -15, morale: -7, oxygen: -3 } }
+      ]
+    },
+    {
+      title: "Brief Communication Blackout",
+      desc: "Contact with Earth is lost for several hours.",
+      lifeCritical: false,
+      options: [
+        { text: "Stay calm and follow established procedures", good: true, effect: { morale: +4, power: -2 } },
+        { text: "Keep trying to re-establish the link (uses power)", good: false, effect: { power: -9, morale: -5 } }
+      ]
+    },
+    {
+      title: "Crew Fatigue and Mild Illness",
+      desc: "Some crew members are sleeping poorly and losing focus.",
+      lifeCritical: false,
+      options: [
+        { text: "Adjust shifts and increase rest time", good: true, effect: { morale: +8, food: -2, power: -1 } },
+        { text: "Push the original schedule harder", good: false, effect: { morale: -10, oxygen: -2 } }
+      ]
+    },
+    {
+      title: "Water Recycling Efficiency Drop",
+      desc: "The water recovery rate has worsened.",
+      lifeCritical: false,
+      options: [
+        { text: "Immediately clean and inspect the system", good: true, effect: { water: +9, power: -5, oxygen: -2 } },
+        { text: "Conserve water and delay maintenance", good: false, effect: { water: -7, morale: -3 } }
+      ]
+    },
+    {
+      title: "Scientifically Valuable Rock Sample Found",
+      desc: "Should we spend time collecting and analyzing it?",
+      lifeCritical: false,
+      options: [
+        { text: "Schedule collection and preliminary analysis", good: true, effect: { morale: +6, power: -4, oxygen: -3, food: -1 } },
+        { text: "Finish priority tasks first, collect later", good: true, effect: { morale: +1 } }
+      ]
+    },
+    {
+      title: "Power System Surge",
+      desc: "Voltage is unstable and may damage equipment.",
+      lifeCritical: false,
+      options: [
+        { text: "Switch to stable mode and inspect immediately", good: true, effect: { power: +6, oxygen: -2 } },
+        { text: "Observe for now and do nothing yet", good: false, effect: { power: -12, morale: -4 } }
+      ]
+    },
+    {
+      title: "Sudden Extreme Temperature Change",
+      desc: "External temperature has moved outside expected range.",
+      lifeCritical: false,
+      options: [
+        { text: "Activate additional thermal control systems", good: true, effect: { power: -8, morale: +2, oxygen: -1 } },
+        { text: "Use only basic thermal control to save power", good: false, effect: { power: +3, morale: -6, shield: -3 } }
+      ]
+    },
+    {
+      title: "Crew Disagreement",
+      desc: "Two crew members have different opinions about task assignment.",
+      lifeCritical: false,
+      options: [
+        { text: "Hold a short coordination meeting right away", good: true, effect: { morale: +7, food: -1 } },
+        { text: "Ignore it and let them sort it out themselves", good: false, effect: { morale: -9 } }
+      ]
+    },
+    {
+      title: "Ice Deposit Discovered Nearby",
+      desc: "Signs of extractable water ice have been detected.",
+      lifeCritical: false,
+      options: [
+        { text: "Organize a collection team", good: true, effect: { water: +14, power: -7, oxygen: -4, morale: +5 } },
+        { text: "Record the location and return later", good: true, effect: { morale: +2 } }
+      ]
+    },
+    {
+      title: "Greenhouse Anomaly",
+      desc: "Some crops are showing problems.",
+      lifeCritical: false,
+      options: [
+        { text: "Invest resources to save the crops", good: true, effect: { food: +8, water: -5, power: -3 } },
+        { text: "Abandon part of the crop to conserve resources", good: false, effect: { food: -6, morale: -4 } }
+      ]
+    }
+  ];
+
+  const ev = events[Math.floor(Math.random() * events.length)];
+  showEvent(ev);
+}
+
+function showEvent(ev) {
+  state.paused = true;
+  const area = document.getElementById('event-area');
+  area.classList.remove('hidden');
+
+  // Simulated voting (good options tend to get more votes)
+  let voteA = Math.floor(Math.random() * 3) + (ev.options[0].good ? 3 : 1);
+  let voteB = 7 - voteA;
+  if (voteB < 1) { voteA = 5; voteB = 2; }
+
+  let html = `
+    <div class="event">
+      <strong>${ev.title}</strong>
+      <p>${ev.desc}</p>
+  `;
+
+  if (state.isCommander) {
+    html += `
+      <div class="vote-result">
+        Crew vote results:<br>
+        “${ev.options[0].text}” → ${voteA} votes<br>
+        “${ev.options[1].text}” → ${voteB} votes
+      </div>
+      <p style="font-size:0.9rem;margin-bottom:8px">You are the Commander. Make the final decision:</p>
+    `;
+  } else {
+    html += `<p style="font-size:0.9rem;margin-bottom:8px">You are a crew member. Please vote:</p>`;
+  }
+
+  html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+  ev.options.forEach((opt, i) => {
+    html += `<button onclick="resolveEvent(${i}, ${ev.lifeCritical})">${opt.text}</button>`;
+  });
+  html += `</div></div>`;
+
+  area.innerHTML = html;
+  window._currentEvent = ev;
+  window._votes = [voteA, voteB];
+}
+
+function resolveEvent(idx, lifeCritical) {
+  const ev = window._currentEvent;
+  const choice = ev.options[idx];
+  const majorityIdx = window._votes[0] >= window._votes[1] ? 0 : 1;
+
+  for (const [k, v] of Object.entries(choice.effect)) {
+    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+  }
+
+  if (state.isCommander) {
+    if (!choice.good) {
+      state.commanderMistakes++;
+      addLog(`Commander chose a less favorable option (mistakes: ${state.commanderMistakes}/3)`);
+    } else {
+      addLog(`Commander decided: ${choice.text}`);
+    }
+    if (lifeCritical && !choice.good) {
+      addLog("⚠️ System intervention: To protect human life, the safer option was automatically applied.");
+      state.resources.shield = Math.min(100, state.resources.shield + 8);
+      state.resources.morale = Math.min(100, state.resources.morale + 3);
+    }
+  } else {
+    addLog(`You voted for: ${choice.text}`);
+    if (!choice.good && idx !== majorityIdx) {
+      state.dissentCount++;
+      addLog(`Your opinion differed from the majority (dissent count: ${state.dissentCount})`);
+      if (state.dissentCount >= 3) {
+        endMission(false, "You were sent back to Earth for repeatedly disagreeing with the team. Remember: teamwork is critical in space missions.", true);
+        return;
+      }
+    } else {
+      state.dissentCount = Math.max(0, state.dissentCount - 0.4);
+    }
+  }
+
+  document.getElementById('event-area').classList.add('hidden');
+  state.paused = false;
+  renderBars();
+}
+
+// ========== UI helpers ==========
+function renderBars() {
+  const bars = document.getElementById('bars');
+  const labels = { oxygen: 'Life Support O₂', power: 'Power', food: 'Food', shield: 'Radiation Shield', morale: 'Morale', water: 'Water' };
+  bars.innerHTML = '';
+  for (const [key, val] of Object.entries(state.resources)) {
+    const color = val > 60 ? 'var(--ok)' : val > 30 ? 'var(--warn)' : 'var(--danger)';
+    bars.innerHTML += `
+      <div class="bar-row">
+        <div class="bar-label">${labels[key]}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0,val)}%;background:${color}"></div></div>
+        <div style="width:36px;text-align:right;font-size:0.85rem">${Math.round(val)}</div>
+      </div>`;
+  }
+}
+
+function renderFocusButtons() {
+  document.getElementById('focus-btns').innerHTML = focuses.map(f => `
+    <button onclick="chooseFocus('${f.id}')" ${state.focus === f.id ? 'style="outline:2px solid white"' : ''}>
+      ${f.name}<br><small style="opacity:0.8">${f.desc}</small>
+    </button>
+  `).join('');
+}
+
+function addLog(msg) {
+  state.log.unshift(`Sol ${state.sol}: ${msg}`);
+  if (state.log.length > 25) state.log.pop();
+  document.getElementById('log').innerHTML = state.log.map(l => `<div>${l}</div>`).join('');
+}
+
+function togglePause() { state.paused = !state.paused; addLog(state.paused ? 'Paused' : 'Resumed'); }
+function setSpeed(s) { state.speed = s; }
+
+function endMission(success, reason, isKicked = false) {
+  state.running = false;
+  clearInterval(state.interval);
+  document.getElementById('game-screen').classList.add('hidden');
+  document.getElementById('end-screen').classList.remove('hidden');
+
+  document.getElementById('end-title').textContent = isKicked
+    ? "🚀 Sent Back to Earth"
+    : (success ? "🎉 Mission Success!" : "💥 Mission Failed");
+
+  document.getElementById('end-report').innerHTML = `
+    <p><strong>Reason:</strong> ${reason}</p>
+    <p>Sols survived: ${state.sol}</p>
+    <p>Profession: ${state.profession.name}　Role: ${state.isCommander ? "Commander" : "Crew Member"}</p>
+    <p style="margin-top:14px;font-size:0.95rem">
+      ${isKicked
+        ? "This experience reminds us that in extreme space environments, teamwork and communication are often as important as technical skills."
+        : "You experienced role division, voting decisions, and resource trade-offs of a real space mission. Hopefully this simulation helps you better understand the qualities astronauts need."}
+    </p>
+  `;
+}
+</script>
+</body>
+</html>
