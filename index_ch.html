@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1in746 — Be One of the Astronauts</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --card: #151c30;
+    --accent: #4fc3f7;
+    --good: #66bb6a;
+    --warn: #ffa726;
+    --danger: #ef5350;
+    --text: #e8eaf6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .container { max-width: 820px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  .subtitle { opacity: 0.85; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+    border: 1px solid #2a3550;
+  }
+  button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 4px;
+  }
+  button.secondary { background: #3949ab; color: #fff; }
+  .bar-wrap { margin: 8px 0; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .bar {
+    height: 10px;
+    background: #2a3550;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .bar-fill { height: 100%; transition: width 0.3s; }
+  .log { max-height: 180px; overflow-y: auto; font-size: 0.9rem; background: #0e1525; padding: 10px; border-radius: 8px; }
+  .crew-vote { background: #1a2238; padding: 10px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
+  .hidden { display: none; }
+  .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
+  .fact { background: #1e2a44; padding: 8px 12px; border-left: 3px solid var(--accent); margin: 10px 0; font-size: 0.9rem; }
+  .end-summary { line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🚀 1in746 — Be One of the Astronauts</h1>
+  <p class="subtitle">綜合太空任務模擬 · 測試你在面對未知困難時的決策與反應</p>
+
+  <div id="intro-screen" class="card">
+    <h2>這是什麼？</h2>
+    <p>這是一個<strong>綜合太空任務模擬</strong>。系統會隨機分配你的職業、著陸點，以及任務中會遇到的事件。</p>
+    <p>目的不是知識測驗，而是測試你作為 potential astronaut，在資源有限、資訊不完全的情況下，如何進行工程權衡與團隊決策。</p>
+    <div class="fact">
+      <strong>為什麼叫 1 in 746？</strong><br>
+      截至目前，全人類只有約 746 人真正飛出過地球大氣層、進入太空。這代表成為太空人極其稀有。本模擬希望讓你體驗這份稀有身分所面對的挑戰與抉擇。
+    </div>
+    <button onclick="startBirth()">開始隨機分配</button>
+  </div>
+
+  <div id="birth-result" class="card hidden">
+    <h2>你的任務身分</h2>
+    <div id="birth-info"></div>
+    <button onclick="startMission()">確認並開始任務</button>
+  </div>
+
+  <div id="game-screen" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span id="stage-badge" class="stage-badge">01 抵達與基地部署</span>
+          <span id="sol-display" style="margin-left:12px;">Sol 0</span>
+        </div>
+        <div>
+          <button class="secondary" onclick="togglePause()">⏸ 暫停</button>
+          <button class="secondary" onclick="setSpeed(1)">1×</button>
+          <button class="secondary" onclick="setSpeed(4)">4×</button>
+          <button class="secondary" onclick="setSpeed(8)">8×</button>
+        </div>
+      </div>
+      <p id="player-info" style="margin:8px 0 0;"></p>
+      <p id="mission-progress" style="margin:4px 0 0;font-size:0.9rem;"></p>
+    </div>
+
+    <div class="card">
+      <h3>系統狀態</h3>
+      <div id="resource-bars"></div>
+    </div>
+
+    <div class="card">
+      <h3>本階段重點</h3>
+      <div id="focus-buttons"></div>
+    </div>
+
+    <div class="card">
+      <h3>任務日誌</h3>
+      <div id="log" class="log"></div>
+    </div>
+
+    <div id="event-area" class="card hidden"></div>
+  </div>
+
+  <div id="end-screen" class="card hidden">
+    <h2 id="end-title"></h2>
+    <div id="end-summary" class="end-summary"></div>
+    <button onclick="location.reload()">重新開始</button>
+  </div>
+</div>
+
+<script>
+const professions = [
+  { name: "航太工程師", commanderChance: 0.28 },
+  { name: "科學家（物理/天文）", commanderChance: 0.18 },
+  { name: "飛行員 / 試飛員", commanderChance: 0.35 },
+  { name: "醫師 / 生物醫學", commanderChance: 0.12 },
+  { name: "地質學家", commanderChance: 0.08 },
+  { name: "教師 / 教育者", commanderChance: 0.05 },
+  { name: "電腦工程師", commanderChance: 0.15 },
+  { name: "機械工程師", commanderChance: 0.20 }
+];
+
+const locations = [
+  { name: "月球寧靜海", type: "moon", special: "月球日夜溫差大", impact: "能源與溫控挑戰" },
+  { name: "月球南極", type: "moon", special: "部分區域可能有水冰", impact: "水資源探索" },
+  { name: "火星 Gale Crater", type: "mars", special: "地形與沙塵環境", impact: "探測、能源管理" },
+  { name: "火星 Jezero Crater", type: "mars", special: "古代水環境的地質證據", impact: "科學採樣任務" }
+];
+
+const stages = [
+  { id: 1, name: "抵達與基地部署", desc: "選擇設備、建立生命維持系統" },
+  { id: 2, name: "基地生存", desc: "管理氧氣、水、食物與能源" },
+  { id: 3, name: "科學探索", desc: "採樣、實驗、處理突發事件" },
+  { id: 4, name: "緊急應變", desc: "面對故障、資源不足與團隊衝突" },
+  { id: 5, name: "任務評估", desc: "分析成果、總結決策與學習內容" }
+];
+
+const focuses = [
+  { id: 'life', name: '維持生命維持', desc: '氧氣與水', effect: { oxygen: 3, water: 2, power: -2 } },
+  { id: 'power', name: '強化電力系統', desc: '太陽能 / 電池', effect: { power: 5, oxygen: -1 } },
+  { id: 'food', name: '食物生產', desc: '溫室', effect: { food: 4, water: -2, power: -1 } },
+  { id: 'shield', name: '輻射防護', desc: '屏蔽強化', effect: { shield: 4, morale: 1, power: -2 } },
+  { id: 'morale', name: '士氣與訓練', desc: '休息與模擬', effect: { morale: 5, food: -1 } },
+  { id: 'explore', name: '科學探索', desc: '實驗與採樣', effect: { food: 1, water: 2, power: -3, shield: -1, morale: 3 } }
+];
+
+const state = {
+  sol: 0, running: false, paused: false, speed: 1, interval: null,
+  stage: 1, focus: null,
+  experimentsDone: 0, maxExperiments: 2,
+  profession: null, location: null, isCommander: false,
+  resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
+  log: [], decisions: [], resourceHistory: [],
+  usedEvents: new Set(),
+  crew: [
+    { role: "工程師", priority: "設備與能源", bias: "power" },
+    { role: "醫師", priority: "生命安全", bias: "safety" },
+    { role: "科學家", priority: "實驗成果", bias: "science" }
+  ]
+};
+
+function startBirth() {
+  state.profession = professions[Math.floor(Math.random() * professions.length)];
+  state.location = locations[Math.floor(Math.random() * locations.length)];
+  state.isCommander = Math.random() < state.profession.commanderChance;
+
+  document.getElementById('intro-screen').classList.add('hidden');
+  document.getElementById('birth-result').classList.remove('hidden');
+
+  document.getElementById('birth-info').innerHTML = `
+    <p><strong>職業：</strong> ${state.profession.name}</p>
+    <p><strong>著陸點：</strong> ${state.location.name}</p>
+    <p><strong>地點特性：</strong> ${state.location.special} → ${state.location.impact}</p>
+    <p><strong>角色：</strong> ${state.isCommander ? '<span style="color:#ffa726">指揮官</span>' : '組員（可投票）'}</p>
+    <p style="margin-top:12px;font-size:0.9rem;opacity:0.85">
+      指揮官機率：約 ${(state.profession.commanderChance * 100).toFixed(0)}%<br>
+      任務目標：完成 2 項科學實驗，並維持基地穩定運作後進行任務評估。
+    </p>
+  `;
+}
+
+function startMission() {
+  document.getElementById('birth-result').classList.add('hidden');
+  document.getElementById('game-screen').classList.remove('hidden');
+
+  document.getElementById('player-info').textContent =
+    `${state.profession.name} · ${state.location.name}`;
+  updateStage();
+  renderBars();
+  renderFocusButtons();
+  updateProgress();
+  addLog(`任務開始。著陸於 ${state.location.name}。你是${state.isCommander ? "指揮官" : "組員"}（${state.profession.name}）。`);
+  state.running = true;
+  state.interval = setInterval(tick, 1000);
+}
+
+function updateStage() {
+  const s = stages.find(x => x.id === state.stage);
+  document.getElementById('stage-badge').textContent = `0${s.id} ${s.name}`;
+}
+
+function updateProgress() {
+  document.getElementById('mission-progress').textContent =
+    `實驗完成：${state.experimentsDone} / ${state.maxExperiments}`;
+}
+
+function tick() {
+  if (state.paused || !state.running) return;
+  for (let i = 0; i < state.speed; i++) {
+    advanceOneSol();
+    if (!state.running) break;
+  }
+  document.getElementById('sol-display').textContent = `Sol ${state.sol}`;
+  renderBars();
+}
+
+function advanceOneSol() {
+  state.sol++;
+  state.resourceHistory.push({ ...state.resources, sol: state.sol });
+
+  state.resources.oxygen = Math.max(0, state.resources.oxygen - 1.4);
+  state.resources.power  = Math.max(0, state.resources.power  - 1.0);
+  state.resources.food   = Math.max(0, state.resources.food   - 1.2);
+  state.resources.water  = Math.max(0, state.resources.water  - 1.0);
+  state.resources.shield = Math.max(0, state.resources.shield - 0.25);
+  state.resources.morale = Math.max(0, state.resources.morale - 0.2);
+
+  if (state.focus) {
+    const f = focuses.find(x => x.id === state.focus);
+    if (f) {
+      for (const [k, v] of Object.entries(f.effect)) {
+        state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+      }
+    }
+  }
+
+  if (state.stage === 1 && state.sol >= 6) { state.stage = 2; updateStage(); addLog("進入基地生存階段。"); }
+  if (state.stage === 2 && state.sol >= 14) { state.stage = 3; updateStage(); addLog("進入科學探索階段。"); }
+  if (state.stage === 3 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 4; updateStage(); addLog("進入緊急應變階段。"); }
+  if (state.stage === 4 && state.sol >= 30) { state.stage = 5; updateStage(); addLog("進入任務評估階段。"); endMission(true); }
+
+  if (Math.random() < 0.22) triggerRandomEvent();
+
+  for (const [k, v] of Object.entries(state.resources)) {
+    if (v <= 0) {
+      endMission(false, `關鍵系統「${k}」崩潰。`);
+      return;
+    }
+  }
+}
+
+function renderBars() {
+  const container = document.getElementById('resource-bars');
+  const labels = { oxygen: "生命維持 O₂", power: "電力", food: "食物", shield: "輻射防護", morale: "士氣", water: "水" };
+  container.innerHTML = Object.keys(labels).map(k => {
+    const val = Math.round(state.resources[k]);
+    const color = val < 30 ? '#ef5350' : val < 60 ? '#ffa726' : '#66bb6a';
+    return `
+      <div class="bar-wrap">
+        <div class="bar-label"><span>${labels[k]}</span><span>${val}</span></div>
+        <div class="bar"><div class="bar-fill" style="width:${val}%;background:${color}"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderFocusButtons() {
+  const container = document.getElementById('focus-buttons');
+  container.innerHTML = focuses.map(f => `
+    <button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')">
+      ${f.name}<br><small>${f.desc}</small>
+    </button>
+  `).join('');
+}
+
+function chooseFocus(id) {
+  state.focus = id;
+  const f = focuses.find(x => x.id === id);
+  addLog(`本階段重點：${f.name}`);
+  renderFocusButtons();
+}
+
+function togglePause() { state.paused = !state.paused; }
+function setSpeed(s) { state.speed = s; }
+
+function addLog(msg) {
+  state.log.push(`Sol ${state.sol}: ${msg}`);
+  const el = document.getElementById('log');
+  el.innerHTML = state.log.slice(-12).map(l => `<div>${l}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ===== 擴充事件池 =====
+function getEventPool() {
+  const loc = state.location;
+  const pool = [];
+
+  // 地點專屬事件
+  if (loc.type === "moon") {
+    pool.push({
+      id: "moon_temp",
+      title: "極端溫差挑戰",
+      desc: "月球日夜溫差極大，熱控系統負荷升高。",
+      fact: "月球表面日夜溫差可達 300°C 以上，熱控是關鍵工程挑戰。",
+      options: [
+        { text: "提高熱控功率", effect: { power: -8, shield: 2, morale: 1 }, tradeoff: "消耗電力換取穩定溫控" },
+        { text: "調整作息避開極端時段", effect: { power: -2, morale: -3, food: -1 }, tradeoff: "減少消耗但影響士氣與生產" },
+        { text: "維持現狀觀察", effect: { shield: -6, morale: -2 }, tradeoff: "保留資源但承擔熱控風險" }
+      ]
+    });
+    pool.push({
+      id: "moon_regolith",
+      title: "月塵侵入設備",
+      desc: "月塵顆粒細小且帶靜電，開始影響設備密封與散熱。",
+      fact: "Apollo 太空人曾回報月塵造成設備磨損與呼吸系統問題。",
+      options: [
+        { text: "加強清潔與密封檢查", effect: { power: -4, morale: -1, shield: 3 }, tradeoff: "消耗時間與電力降低長期風險" },
+        { text: "暫時接受效率下降", effect: { power: -3, morale: -2 }, tradeoff: "保留人力但設備持續受損" },
+        { text: "使用備用過濾系統", effect: { oxygen: -3, power: -2, morale: 1 }, tradeoff: "消耗耗材換取短期穩定" }
+      ]
+    });
+  }
+
+  if (loc.name.includes("南極")) {
+    pool.push({
+      id: "south_ice",
+      title: "水冰探索機會",
+      desc: "探測到附近可能存在水冰。",
+      fact: "月球南極永久陰影區被認為可能存在水冰，是未來基地的重要資源。",
+      options: [
+        { text: "派遣探測任務開採", effect: { water: 15, power: -6, oxygen: -3 }, tradeoff: "獲得水資源但消耗能源與氧氣" },
+        { text: "僅遠距探測確認", effect: { water: 4, power: -2, morale: 2 }, tradeoff: "風險較低但收益有限" },
+        { text: "暫緩探索", effect: { morale: -2 }, tradeoff: "保留資源但錯失機會" }
+      ]
+    });
+    pool.push({
+      id: "south_shadow",
+      title: "永久陰影區通訊中斷",
+      desc: "進入陰影區後與軌道器通訊不穩。",
+      fact: "月球南極通訊環境複雜，需要中繼衛星或地面中繼站。",
+      options: [
+        { text: "等待軌道器過境再傳輸", effect: { morale: -3, power: -1 }, tradeoff: "延遲資料但節省電力" },
+        { text: "提高發射功率強制通訊", effect: { power: -7, morale: 1 }, tradeoff: "確保資料傳輸但大幅耗電" },
+        { text: "改用本地儲存稍後補傳", effect: { morale: -1 }, tradeoff: "風險最低但可能遺失即時資料" }
+      ]
+    });
+  }
+
+  if (loc.type === "mars") {
+    pool.push({
+      id: "mars_dust",
+      title: "沙塵影響太陽能板",
+      desc: "沙塵降低太陽能發電效率。",
+      fact: "火星探測車 Opportunity 與 Spirit 曾因沙塵累積導致電力下降。",
+      options: [
+        { text: "進行 EVA 清潔", effect: { power: 12, oxygen: -5, morale: 1 }, tradeoff: "恢復發電但消耗氧氣並有風險" },
+        { text: "降低非必要用電", effect: { power: -3, morale: -4, food: -1 }, tradeoff: "節電但影響士氣與生產" },
+        { text: "等待自然風吹散", effect: { power: -5, morale: -1 }, tradeoff: "不消耗資源但恢復緩慢" }
+      ]
+    });
+    pool.push({
+      id: "mars_storm",
+      title: "區域沙塵暴預警",
+      desc: "附近出現沙塵活動，能見度與發電將受影響。",
+      fact: "全球性沙塵暴曾讓 Opportunity 探測車進入長期休眠。",
+      options: [
+        { text: "提前進入低功耗模式", effect: { power: -2, morale: -3, food: -1 }, tradeoff: "降低風險但限制活動" },
+        { text: "搶在風暴前完成關鍵任務", effect: { power: -5, morale: 2, oxygen: -2 }, tradeoff: "爭取進度但消耗更多資源" },
+        { text: "正常運作並持續監控", effect: { power: -6, shield: -2 }, tradeoff: "維持計畫但可能被迫中斷" }
+      ]
+    });
+  }
+
+  if (loc.name.includes("Jezero")) {
+    pool.push({
+      id: "jezero_sample",
+      title: "古代水環境採樣",
+      desc: "發現有科學價值的地質樣本機會。",
+      fact: "Jezero Crater 被認為曾有古代湖泊，是尋找生命跡象的重要地點。",
+      options: [
+        { text: "優先進行科學採樣", effect: { morale: 5, power: -4, water: -2 }, tradeoff: "科學成果優先，消耗資源", isExperiment: true },
+        { text: "有限度採樣後返回", effect: { morale: 2, power: -2 }, tradeoff: "平衡科學與資源", isExperiment: true },
+        { text: "以生存為優先暫緩", effect: { morale: -3 }, tradeoff: "保留資源但減少科學產出" }
+      ]
+    });
+    pool.push({
+      id: "jezero_delta",
+      title: "三角洲沉積物分析",
+      desc: "發現可能保存有機物的沉積層。",
+      fact: "Jezero 的三角洲是 Perseverance 任務的重點採樣區域。",
+      options: [
+        { text: "深入採樣並分析", effect: { morale: 4, power: -5, water: -1 }, tradeoff: "高科學價值但消耗較多", isExperiment: true },
+        { text: "快速表面取樣", effect: { morale: 2, power: -2 }, tradeoff: "風險較低但資料較少", isExperiment: true },
+        { text: "標記位置稍後再探", effect: { morale: -1 }, tradeoff: "保留資源等待更好時機" }
+      ]
+    });
+  }
+
+  // 通用事件
+  pool.push(
+    {
+      id: "solar_storm",
+      title: "太陽風暴警報",
+      desc: `太陽粒子事件即將抵達。目前電力 ${Math.round(state.resources.power)}%，防護 ${Math.round(state.resources.shield)}%。`,
+      fact: "Apollo 任務會密切監控太陽活動，並在必要時進入風暴避難所。",
+      options: [
+        { text: "全員進入避難所", effect: { shield: 10, power: -8, morale: -2 }, tradeoff: "大幅降低輻射風險，但消耗備用電力" },
+        { text: "停止非必要活動並加強防護", effect: { shield: 6, power: -4, morale: -1 }, tradeoff: "平衡防護與電力消耗" },
+        { text: "維持任務繼續運作", effect: { shield: -10, morale: -4, power: 1 }, tradeoff: "保留資源與進度，但承擔較高輻射風險" }
+      ]
+    },
+    {
+      id: "oxygen_anomaly",
+      title: "氧氣系統效率下降",
+      desc: "電解製氧效率出現異常。",
+      fact: "ISS 的 Oxygen Generation System 透過電解水產生氧氣，系統異常需要快速判斷。",
+      options: [
+        { text: "切換備用系統並檢修", effect: { oxygen: 8, power: -5, morale: -1 }, tradeoff: "恢復氧氣但消耗電力" },
+        { text: "降低活動量減少消耗", effect: { oxygen: 2, morale: -4, food: -1 }, tradeoff: "減緩消耗但影響士氣" },
+        { text: "持續監控暫不介入", effect: { oxygen: -6, morale: -2 }, tradeoff: "保留資源但風險持續累積" }
+      ]
+    },
+    {
+      id: "greenhouse",
+      title: "溫室植物生長異常",
+      desc: "部分作物出現生長遲緩。",
+      fact: "ISS Veggie 實驗成功種植生菜，但植物在微重力下仍有許多未知變數。",
+      options: [
+        { text: "調整營養液與光照", effect: { food: 6, power: -3, water: -2 }, tradeoff: "可能提升產量但消耗資源" },
+        { text: "收成現有作物後重新種植", effect: { food: 3, morale: 1, water: -1 }, tradeoff: "短期補充但需重新投入" },
+        { text: "維持現狀觀察", effect: { food: -2, morale: -2 }, tradeoff: "不額外消耗但產量持續下降" }
+      ]
+    },
+    {
+      id: "power_fault",
+      title: "電力分配異常",
+      desc: "部分子系統電力供應不穩定。",
+      fact: "太空任務中電力是最關鍵的共享資源，任何分配異常都可能連鎖影響生命維持。",
+      options: [
+        { text: "重新分配優先權給生命維持", effect: { oxygen: 4, water: 2, power: -3, morale: -1 }, tradeoff: "保障生存但限制其他系統" },
+        { text: "暫時關閉非必要設備", effect: { power: 5, morale: -3, food: -1 }, tradeoff: "恢復電力餘裕但影響日常運作" },
+        { text: "平均限電並持續監控", effect: { power: -2, morale: -2 }, tradeoff: "影響範圍較小但問題未根本解決" }
+      ]
+    },
+    {
+      id: "morale_conflict",
+      title: "組員意見分歧",
+      desc: "團隊對下一步優先順序產生分歧。",
+      fact: "長期隔離任務中，團隊動態與心理支持是 NASA 行為健康研究的重點。",
+      options: [
+        { text: "召開正式討論會", effect: { morale: 6, power: -1, food: -1 }, tradeoff: "提升凝聚力但消耗時間與資源" },
+        { text: "由指揮官直接裁定", effect: { morale: -2, power: 1 }, tradeoff: "決策快速但可能累積不滿" },
+        { text: "暫時擱置爭議專注任務", effect: { morale: -4 }, tradeoff: "短期不影響進度但分歧可能惡化" }
+      ]
+    },
+    {
+      id: "water_recycle",
+      title: "水回收系統效率下降",
+      desc: "水回收率從 90% 降至約 75%。",
+      fact: "ISS 水回收系統可回收約 90% 的水，是長期任務的關鍵技術。",
+      options: [
+        { text: "進行深度清潔與維護", effect: { water: 8, power: -4, morale: -1 }, tradeoff: "恢復效率但需停機維護" },
+        { text: "降低用水量標準", effect: { water: 3, morale: -5 }, tradeoff: "減緩消耗但嚴重影響生活品質" },
+        { text: "使用備用儲水並觀察", effect: { water: -4, morale: -1 }, tradeoff: "短期無感但儲備快速下降" }
+      ]
+    },
+    {
+      id: "radiation_spike",
+      title: "背景輻射升高",
+      desc: "監測到背景輻射持續偏高。",
+      fact: "離開地球磁層後，銀河宇宙射線與太陽粒子事件是主要輻射風險來源。",
+      options: [
+        { text: "增加屏蔽材料配置", effect: { shield: 8, power: -3, morale: 1 }, tradeoff: "提升防護但消耗電力與空間" },
+        { text: "限制艙外活動時間", effect: { shield: 4, morale: -3, power: 1 }, tradeoff: "降低暴露但影響任務進度" },
+        { text: "維持原計畫並加強監測", effect: { shield: -5, morale: -1 }, tradeoff: "不額外消耗但累積劑量上升" }
+      ]
+    }
+  );
+
+  return pool;
+}
+
+function triggerRandomEvent() {
+  let pool = getEventPool().filter(e => !state.usedEvents.has(e.id));
+  if (pool.length === 0) {
+    state.usedEvents.clear();
+    pool = getEventPool();
+  }
+  const ev = pool[Math.floor(Math.random() * pool.length)];
+  state.usedEvents.add(ev.id);
+  showEvent(ev);
+}
+
+function showEvent(ev) {
+  state.paused = true;
+  const area = document.getElementById('event-area');
+  area.classList.remove('hidden');
+
+  const crewOpinions = state.crew.map(c => {
+    let preferred = 0;
+    if (c.bias === "power") {
+      preferred = ev.options.findIndex(o => (o.effect.power || 0) > -4);
+    } else if (c.bias === "safety") {
+      preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 4 || (o.effect.oxygen || 0) > 3);
+    } else if (c.bias === "science") {
+      preferred = ev.options.findIndex(o => o.isExperiment || (o.effect.morale || 0) > 2);
+    }
+    if (preferred < 0) preferred = Math.floor(Math.random() * ev.options.length);
+    return { ...c, preferred, reason: `${c.role}優先考慮${c.priority}，傾向選擇「${ev.options[preferred].text}」。` };
+  });
+
+  let html = `
+    <strong>${ev.title}</strong>
+    <p>${ev.desc}</p>
+    <div class="fact"><strong>真實太空事實：</strong>${ev.fact}</div>
+    <h4 style="margin:12px 0 6px">組員意見</h4>
+  `;
+  crewOpinions.forEach(o => {
+    html += `<div class="crew-vote">${o.reason}</div>`;
+  });
+
+  html += `<p style="margin:10px 0 6px"><strong>你的決定（工程權衡）：</strong></p>`;
+  ev.options.forEach((opt, i) => {
+    html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:6px 0">
+      ${opt.text}<br><small style="opacity:0.8">${opt.tradeoff}</small>
+    </button>`;
+  });
+
+  area.innerHTML = html;
+  window._currentEvent = ev;
+  window._crewOpinions = crewOpinions;
+}
+
+function resolveEvent(idx) {
+  const ev = window._currentEvent;
+  const choice = ev.options[idx];
+
+  for (const [k, v] of Object.entries(choice.effect)) {
+    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+  }
+
+  if (choice.isExperiment) state.experimentsDone = Math.min(state.maxExperiments, state.experimentsDone + 1);
+
+  const majority = window._crewOpinions.filter(o => o.preferred === idx).length;
+  state.decisions.push({
+    title: ev.title,
+    choice: choice.text,
+    tradeoff: choice.tradeoff,
+    followedMajority: majority >= 2
+  });
+
+  addLog(`決定：${choice.text}（${majority >= 2 ? "採納多數意見" : "自行判斷"}）`);
+  updateProgress();
+  document.getElementById('event-area').classList.add('hidden');
+  state.paused = false;
+}
+
+function endMission(success, reason = "") {
+  state.running = false;
+  clearInterval(state.interval);
+  document.getElementById('game-screen').classList.add('hidden');
+  document.getElementById('end-screen').classList.remove('hidden');
+
+  document.getElementById('end-title').textContent = success ? "任務完成" : "任務中止";
+
+  const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
+  const decisionSummary = state.decisions.length
+    ? state.decisions.map(d => `• ${d.title} → ${d.choice}`).join("<br>")
+    : "尚無重大決策紀錄";
+
+  document.getElementById('end-summary').innerHTML = `
+    <p>${success ? "你成功完成任務評估階段。" : "任務因以下原因中止：" + reason}</p>
+    <p><strong>著陸點：</strong>${state.location.name}（${state.location.special}）</p>
+    <p><strong>最終資源狀態：</strong><br>${finalRes}</p>
+    <p><strong>完成實驗：</strong>${state.experimentsDone} / ${state.maxExperiments}</p>
+    <p><strong>決策紀錄：</strong><br>${decisionSummary}</p>
+    <div class="fact">
+      <strong>學習重點：</strong>太空任務充滿工程權衡。沒有完美答案，只有在當下資源條件下最合理的選擇。真實的太空人同樣必須在生命安全、任務目標與資源限制之間不斷權衡。
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
