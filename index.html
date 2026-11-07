@@ -155,11 +155,12 @@
     </div>
   </div>
 
-  <div id="info-modal" class="modal hidden">
-    <div class="modal-content">
+  <div id="info-modal" class="modal hidden" onclick="closeInfo()">
+    <div class="modal-content" onclick="event.stopPropagation()">
       <h3 id="info-title"></h3>
       <p id="info-text" style="margin-top:10px;font-size:0.95rem"></p>
       <p id="info-source" style="margin-top:8px;font-size:0.85rem"></p>
+      <button style="margin-top:16px" onclick="closeInfo()">Close</button>
     </div>
   </div>
 
@@ -227,7 +228,10 @@ function showInfo(key) {
   document.getElementById('info-modal').classList.remove('hidden');
 }
 function closeInfo() {
-  document.getElementById('info-modal').classList.add('hidden');
+  const modal = document.getElementById('info-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
 }
 
 function startBirth() {
