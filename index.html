@@ -13,6 +13,8 @@
     --warn: #ffa726;
     --danger: #ef5350;
     --text: #e8eaf6;
+    --nominal: #1e2a44;
+    --decision: #3e2a1a;
   }
   * { box-sizing: border-box; }
   body {
@@ -31,6 +33,7 @@
     padding: 18px;
     margin-bottom: 16px;
     border: 1px solid #2a3550;
+    transition: background 0.3s, border-color 0.3s;
   }
   button {
     background: var(--accent);
@@ -59,6 +62,19 @@
   .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
   .fact { background: #1e2a44; padding: 8px 12px; border-left: 3px solid var(--accent); margin: 10px 0; font-size: 0.9rem; }
   .end-summary { line-height: 1.7; }
+  #event-area.nominal {
+    background: var(--nominal);
+    border-color: #3949ab;
+  }
+  #event-area.decision {
+    background: var(--decision);
+    border-color: var(--warn);
+  }
+  .status-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 10px;
+  }
 </style>
 </head>
 <body>
@@ -116,7 +132,10 @@
       <div id="log" class="log"></div>
     </div>
 
-    <div id="event-area" class="card hidden"></div>
+    <div id="event-area" class="card nominal">
+      <div class="status-title" id="status-title">All systems nominal</div>
+      <div id="event-content">No immediate action required. Mission proceeding normally.</div>
+    </div>
   </div>
 
   <div id="end-screen" class="card hidden">
@@ -170,12 +189,23 @@ const state = {
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
   log: [], decisions: [], resourceHistory: [],
   usedEvents: new Set(),
+  pendingFollowUps: [],
   crew: [
     { role: "Engineer", priority: "equipment and power", bias: "power" },
     { role: "Doctor", priority: "crew safety", bias: "safety" },
     { role: "Scientist", priority: "science return", bias: "science" }
   ]
 };
+
+function setEventStatus(mode, title, contentHtml) {
+  const area = document.getElementById('event-area');
+  const titleEl = document.getElementById('status-title');
+  const contentEl = document.getElementById('event-content');
+  area.classList.remove('nominal', 'decision');
+  area.classList.add(mode);
+  titleEl.textContent = title;
+  contentEl.innerHTML = contentHtml || '';
+}
 
 function startBirth() {
   state.profession = professions[Math.floor(Math.random() * professions.length)];
@@ -208,6 +238,7 @@ function startMission() {
   renderFocusButtons();
   updateProgress();
   addLog(`Mission start. Landed at ${state.location.name}. You are the ${state.isCommander ? "Commander" : "Crew Member"} (${state.profession.name}).`);
+  setEventStatus('nominal', 'All systems nominal', 'No immediate action required. Mission proceeding normally.');
   state.running = true;
   state.interval = setInterval(tick, 1000);
 }
@@ -257,7 +288,13 @@ function advanceOneSol() {
   if (state.stage === 3 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 4; updateStage(); addLog("Entered Emergency Response stage."); }
   if (state.stage === 4 && state.sol >= 30) { state.stage = 5; updateStage(); addLog("Entered Mission Evaluation stage."); endMission(true); }
 
-  if (Math.random() < 0.22) triggerRandomEvent();
+  // Follow-up notes from earlier humorous events
+  if (state.pendingFollowUps.length && Math.random() < 0.25) {
+    const note = state.pendingFollowUps.shift();
+    addLog(note);
+  }
+
+  if (Math.random() < 0.20) triggerRandomEvent();
 
   for (const [k, v] of Object.entries(state.resources)) {
     if (v <= 0) {
@@ -308,112 +345,65 @@ function addLog(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-// ===== Expanded Event Pool =====
 function getEventPool() {
   const loc = state.location;
   const pool = [];
 
+  // Location-specific events
   if (loc.type === "moon") {
     pool.push({
       id: "moon_temp",
       title: "Extreme Temperature Swing",
       desc: "Lunar day-night temperature extremes are stressing the thermal control system.",
-      fact: "Lunar surface temperatures can swing more than 300°C between day and night. Thermal control is a critical engineering challenge.",
+      fact: "Lunar surface temperatures can swing more than 300°C between day and night.",
       options: [
         { text: "Increase thermal control power", effect: { power: -8, shield: 2, morale: 1 }, tradeoff: "Spend power for stable temperature control" },
         { text: "Adjust schedule to avoid extremes", effect: { power: -2, morale: -3, food: -1 }, tradeoff: "Reduce consumption but hurt morale and production" },
         { text: "Maintain current settings and monitor", effect: { shield: -6, morale: -2 }, tradeoff: "Preserve resources but accept thermal risk" }
       ]
     });
-    pool.push({
-      id: "moon_regolith",
-      title: "Lunar Dust Intrusion",
-      desc: "Fine, electrostatically charged dust is affecting seals and cooling.",
-      fact: "Apollo astronauts reported that lunar dust caused equipment wear and respiratory issues.",
-      options: [
-        { text: "Perform thorough cleaning and seal checks", effect: { power: -4, morale: -1, shield: 3 }, tradeoff: "Spend time and power to reduce long-term risk" },
-        { text: "Accept reduced efficiency for now", effect: { power: -3, morale: -2 }, tradeoff: "Save effort but allow ongoing damage" },
-        { text: "Activate backup filters", effect: { oxygen: -3, power: -2, morale: 1 }, tradeoff: "Consume consumables for short-term stability" }
-      ]
-    });
   }
-
   if (loc.name.includes("South Pole")) {
     pool.push({
       id: "south_ice",
       title: "Water Ice Exploration Opportunity",
       desc: "Sensors indicate possible water ice nearby.",
-      fact: "Permanently shadowed regions at the lunar south pole are believed to contain water ice — a critical resource for future bases.",
+      fact: "Permanently shadowed regions at the lunar south pole may contain water ice.",
       options: [
         { text: "Send a prospecting mission", effect: { water: 15, power: -6, oxygen: -3 }, tradeoff: "Gain water at the cost of power and oxygen" },
         { text: "Remote sensing only", effect: { water: 4, power: -2, morale: 2 }, tradeoff: "Lower risk but limited gain" },
         { text: "Postpone exploration", effect: { morale: -2 }, tradeoff: "Preserve resources but miss the opportunity" }
       ]
     });
-    pool.push({
-      id: "south_shadow",
-      title: "Communication Blackout in Shadow",
-      desc: "Entering a shadowed region has disrupted contact with the orbiter.",
-      fact: "Communications at the lunar south pole are challenging and often require relay satellites.",
-      options: [
-        { text: "Wait for next orbiter pass", effect: { morale: -3, power: -1 }, tradeoff: "Delay data but save power" },
-        { text: "Boost transmitter power", effect: { power: -7, morale: 1 }, tradeoff: "Ensure transmission at high power cost" },
-        { text: "Store data locally for later", effect: { morale: -1 }, tradeoff: "Lowest risk but possible loss of real-time data" }
-      ]
-    });
   }
-
   if (loc.type === "mars") {
     pool.push({
       id: "mars_dust",
       title: "Dust on Solar Arrays",
       desc: "Dust accumulation is reducing solar power generation.",
-      fact: "Mars rovers Opportunity and Spirit lost significant power due to dust buildup on their solar panels.",
+      fact: "Mars rovers Opportunity and Spirit lost power due to dust on their solar panels.",
       options: [
         { text: "EVA to clean panels", effect: { power: 12, oxygen: -5, morale: 1 }, tradeoff: "Restore power but consume oxygen and accept risk" },
         { text: "Reduce non-essential power use", effect: { power: -3, morale: -4, food: -1 }, tradeoff: "Conserve power but hurt morale and production" },
         { text: "Wait for wind to clear dust", effect: { power: -5, morale: -1 }, tradeoff: "No resource cost but slow recovery" }
       ]
     });
-    pool.push({
-      id: "mars_storm",
-      title: "Regional Dust Storm Warning",
-      desc: "Dust activity is increasing. Visibility and power generation will drop.",
-      fact: "A global dust storm once forced the Opportunity rover into a long hibernation.",
-      options: [
-        { text: "Enter low-power mode early", effect: { power: -2, morale: -3, food: -1 }, tradeoff: "Reduce risk but limit activities" },
-        { text: "Rush critical tasks before the storm", effect: { power: -5, morale: 2, oxygen: -2 }, tradeoff: "Gain progress at higher resource cost" },
-        { text: "Continue normal operations and monitor", effect: { power: -6, shield: -2 }, tradeoff: "Stick to plan but risk interruption" }
-      ]
-    });
   }
-
   if (loc.name.includes("Jezero")) {
     pool.push({
       id: "jezero_sample",
       title: "Ancient Water Environment Sampling",
       desc: "A high-value geological sampling opportunity has been identified.",
-      fact: "Jezero Crater is believed to have once held a lake and is a prime location in the search for signs of past life.",
+      fact: "Jezero Crater is believed to have once held a lake.",
       options: [
         { text: "Prioritize full science sampling", effect: { morale: 5, power: -4, water: -2 }, tradeoff: "Maximize science return at resource cost", isExperiment: true },
         { text: "Limited sampling then return", effect: { morale: 2, power: -2 }, tradeoff: "Balance science and resources", isExperiment: true },
         { text: "Postpone for survival priority", effect: { morale: -3 }, tradeoff: "Preserve resources but reduce science output" }
       ]
     });
-    pool.push({
-      id: "jezero_delta",
-      title: "Delta Sediment Analysis",
-      desc: "Layers that may preserve organic material have been located.",
-      fact: "The Jezero delta is a primary sampling target for the Perseverance mission.",
-      options: [
-        { text: "Deep sampling and analysis", effect: { morale: 4, power: -5, water: -1 }, tradeoff: "High science value at higher cost", isExperiment: true },
-        { text: "Quick surface sample", effect: { morale: 2, power: -2 }, tradeoff: "Lower risk but less data", isExperiment: true },
-        { text: "Mark location for later", effect: { morale: -1 }, tradeoff: "Save resources and wait for a better window" }
-      ]
-    });
   }
 
-  // General events
+  // General serious events
   pool.push(
     {
       id: "solar_storm",
@@ -430,66 +420,79 @@ function getEventPool() {
       id: "oxygen_anomaly",
       title: "Oxygen System Efficiency Drop",
       desc: "Electrolysis efficiency is declining.",
-      fact: "The ISS Oxygen Generation System produces oxygen by electrolyzing water. Anomalies require quick judgment.",
+      fact: "The ISS Oxygen Generation System produces oxygen by electrolyzing water.",
       options: [
         { text: "Switch to backup and repair", effect: { oxygen: 8, power: -5, morale: -1 }, tradeoff: "Restore oxygen at power cost" },
         { text: "Reduce activity to lower consumption", effect: { oxygen: 2, morale: -4, food: -1 }, tradeoff: "Slow consumption but hurt morale" },
         { text: "Monitor without intervention", effect: { oxygen: -6, morale: -2 }, tradeoff: "Save resources but let the problem grow" }
       ]
-    },
+    }
+  );
+
+  // Humorous events (do not cause mission failure)
+  pool.push(
     {
-      id: "greenhouse",
-      title: "Greenhouse Growth Anomaly",
-      desc: "Some crops are growing more slowly than expected.",
-      fact: "The ISS Veggie experiment successfully grew lettuce, but plant growth in space still has many unknowns.",
+      id: "escaped_water",
+      title: "The Last Sip Escaped",
+      desc: "“Commander! My water got away!” An astronaut is chasing a floating water droplet with their mouth open. It is slowly drifting toward the control panel…",
+      fact: "In microgravity, water forms spheres due to surface tension and does not fall to the floor.",
+      humorous: true,
       options: [
-        { text: "Adjust nutrients and lighting", effect: { food: 6, power: -3, water: -2 }, tradeoff: "Potentially improve yield at resource cost" },
-        { text: "Harvest current crop and replant", effect: { food: 3, morale: 1, water: -1 }, tradeoff: "Short-term gain but requires reinvestment" },
-        { text: "Continue current settings", effect: { food: -2, morale: -2 }, tradeoff: "No extra cost but declining yield" }
+        { text: "Chase it with your mouth and try to drink it", effect: { morale: 3 }, tradeoff: "Morale up, but the droplet may split or hit equipment" },
+        { text: "Use an absorbent tool to recover it", effect: { morale: 1, power: -1 }, tradeoff: "Takes a little time, lowers equipment risk" },
+        { text: "Isolate the control panel first, then recover the droplet", effect: { power: -2 }, tradeoff: "Takes more time but improves equipment safety" }
+      ],
+      followUp: [
+        "A small water droplet from earlier was found stuck on a button.",
+        "Residue from the recovered water droplet needed extra wiping later."
       ]
     },
     {
-      id: "power_fault",
-      title: "Power Distribution Anomaly",
-      desc: "Some subsystems are receiving unstable power.",
-      fact: "Power is the most critical shared resource in space. Distribution problems can cascade into life support.",
+      id: "colorful_particles",
+      title: "Colorful Experiment Particles Escaped",
+      desc: "A scientist opened a sample container and the latch failed. A small packet of colorful particles floated out like cosmic fireworks. The engineer stared for three seconds: “Those were tomorrow’s experiment materials.”",
+      fact: "In microgravity, fine particles do not settle quickly and can remain suspended in airflow.",
+      humorous: true,
       options: [
-        { text: "Prioritize life support systems", effect: { oxygen: 4, water: 2, power: -3, morale: -1 }, tradeoff: "Protect survival at the expense of other systems" },
-        { text: "Shut down non-essential equipment", effect: { power: 5, morale: -3, food: -1 }, tradeoff: "Recover power margin but disrupt daily operations" },
-        { text: "Even load shedding and monitor", effect: { power: -2, morale: -2 }, tradeoff: "Smaller impact but root cause remains" }
+        { text: "Film the floating particles for science", effect: { morale: 2 }, tradeoff: "May gain observation data, but particles keep spreading", isExperiment: true },
+        { text: "Immediately seal the area and recover the particles", effect: { power: -1 }, tradeoff: "Delays research but reduces contamination and material loss" },
+        { text: "Assess particle type and spread, then clean by procedure", effect: { morale: -1 }, tradeoff: "Takes time but allows proper protection and recovery" }
+      ],
+      followUp: [
+        "A few colorful particles were later found on equipment surfaces.",
+        "Minor cross-contamination was logged in another experiment area."
       ]
     },
     {
-      id: "morale_conflict",
-      title: "Crew Disagreement",
-      desc: "The team disagrees on the next priority.",
-      fact: "Team dynamics and psychological support are major focus areas in NASA’s behavioral health research for long-duration missions.",
+      id: "spinning_drill",
+      title: "Who’s Spinning?",
+      desc: "Someone forgot to secure themselves while using a power drill. They started slowly rotating in the cabin with the drill still running, shouting “I can’t stop!”",
+      fact: "In microgravity there is no friction to hold you in place. Any reaction force will make you rotate.",
+      humorous: true,
       options: [
-        { text: "Hold a formal discussion", effect: { morale: 6, power: -1, food: -1 }, tradeoff: "Improve cohesion at the cost of time and resources" },
-        { text: "Commander makes the call", effect: { morale: -2, power: 1 }, tradeoff: "Fast decision but possible resentment" },
-        { text: "Set the issue aside and focus on the task", effect: { morale: -4 }, tradeoff: "No immediate delay but the conflict may grow" }
+        { text: "Others grab them and help turn off the drill", effect: { oxygen: -1, morale: 1 }, tradeoff: "Stops the spin quickly but uses a little time and oxygen" },
+        { text: "Let them try to hook a foot and stop themselves", effect: { morale: -1 }, tradeoff: "Saves crew effort but they may bump equipment" },
+        { text: "Pause nearby work so no one gets hit", effect: { morale: -2 }, tradeoff: "Safest option but delays other tasks slightly" }
+      ],
+      followUp: [
+        "A couple of small tools from the drill incident were found later.",
+        "A storage bag was bumped and needed reorganizing."
       ]
     },
     {
-      id: "water_recycle",
-      title: "Water Recycling Efficiency Drop",
-      desc: "Recovery rate has fallen from ~90% to ~75%.",
-      fact: "The ISS water recovery system recycles about 90% of water — a critical technology for long missions.",
+      id: "cookie_crumbs",
+      title: "Cookie Crumb Blizzard",
+      desc: "Someone opened a pack of cookies in microgravity. Crumbs exploded outward like a snowstorm and stuck to screens and clothes.",
+      fact: "Small particles float indefinitely in microgravity and can be drawn into ventilation or equipment.",
+      humorous: true,
       options: [
-        { text: "Deep clean and maintenance", effect: { water: 8, power: -4, morale: -1 }, tradeoff: "Restore efficiency but requires downtime" },
-        { text: "Tighten water use standards", effect: { water: 3, morale: -5 }, tradeoff: "Slow consumption but severely hurt quality of life" },
-        { text: "Use reserve water and monitor", effect: { water: -4, morale: -1 }, tradeoff: "Short-term comfort but reserves drop quickly" }
-      ]
-    },
-    {
-      id: "radiation_spike",
-      title: "Elevated Background Radiation",
-      desc: "Background radiation levels are higher than normal.",
-      fact: "Outside Earth’s magnetosphere, galactic cosmic rays and solar particle events are the main radiation hazards.",
-      options: [
-        { text: "Add shielding material", effect: { shield: 8, power: -3, morale: 1 }, tradeoff: "Better protection at power and space cost" },
-        { text: "Limit EVA time", effect: { shield: 4, morale: -3, power: 1 }, tradeoff: "Reduce exposure but slow the mission" },
-        { text: "Continue plan with increased monitoring", effect: { shield: -5, morale: -1 }, tradeoff: "No extra cost but higher cumulative dose" }
+        { text: "Everyone masks up and vacuum the area", effect: { morale: -1, power: -1 }, tradeoff: "Uses time and consumables but cleans thoroughly" },
+        { text: "Only clean crumbs near equipment", effect: { morale: 1 }, tradeoff: "Faster but some crumbs remain in the air" },
+        { text: "Treat it as snack time and clean while eating", effect: { morale: 4, food: 1 }, tradeoff: "Boosts morale but lower cleaning efficiency" }
+      ],
+      followUp: [
+        "Cookie crumbs were later found in a screen bezel.",
+        "A few crumbs reached a vent and slightly reduced airflow."
       ]
     }
   );
@@ -511,7 +514,6 @@ function triggerRandomEvent() {
 function showEvent(ev) {
   state.paused = true;
   const area = document.getElementById('event-area');
-  area.classList.remove('hidden');
 
   const crewOpinions = state.crew.map(c => {
     let preferred = 0;
@@ -527,7 +529,6 @@ function showEvent(ev) {
   });
 
   let html = `
-    <strong>${ev.title}</strong>
     <p>${ev.desc}</p>
     <div class="fact"><strong>Real Space Fact:</strong> ${ev.fact}</div>
     <h4 style="margin:12px 0 6px">Crew Opinions</h4>
@@ -543,7 +544,7 @@ function showEvent(ev) {
     </button>`;
   });
 
-  area.innerHTML = html;
+  setEventStatus('decision', 'Decision Required', html);
   window._currentEvent = ev;
   window._crewOpinions = crewOpinions;
 }
@@ -553,7 +554,7 @@ function resolveEvent(idx) {
   const choice = ev.options[idx];
 
   for (const [k, v] of Object.entries(choice.effect)) {
-    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
   }
 
   if (choice.isExperiment) state.experimentsDone = Math.min(state.maxExperiments, state.experimentsDone + 1);
@@ -567,8 +568,14 @@ function resolveEvent(idx) {
   });
 
   addLog(`Decision: ${choice.text} (${majority >= 2 ? "followed majority" : "own judgment"})`);
+
+  if (ev.humorous && ev.followUp) {
+    const note = ev.followUp[Math.floor(Math.random() * ev.followUp.length)];
+    state.pendingFollowUps.push(note);
+  }
+
   updateProgress();
-  document.getElementById('event-area').classList.add('hidden');
+  setEventStatus('nominal', 'All systems nominal', 'Decision logged. Mission continuing.');
   state.paused = false;
 }
 
@@ -592,7 +599,7 @@ function endMission(success, reason = "") {
     <p><strong>Experiments Completed:</strong> ${state.experimentsDone} / ${state.maxExperiments}</p>
     <p><strong>Decision Log:</strong><br>${decisionSummary}</p>
     <div class="fact">
-      <strong>Key Takeaway:</strong> Space missions are full of engineering trade-offs. There is rarely a perfect answer — only the most reasonable choice given the resources available at that moment. Real astronauts constantly balance crew safety, mission goals, and resource limits.
+      <strong>Key Takeaway:</strong> Space missions are full of engineering trade-offs. There is rarely a perfect answer — only the most reasonable choice given the resources available at that moment.
     </div>
   `;
 }
