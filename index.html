@@ -24,7 +24,7 @@
     color: var(--text);
     line-height: 1.5;
   }
-  .container { max-width: 820px; margin: 0 auto; padding: 20px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
   .subtitle { opacity: 0.85; margin-bottom: 20px; }
   .card {
@@ -56,7 +56,7 @@
     margin-top: 4px;
   }
   .bar-fill { height: 100%; transition: width 0.3s; }
-  .log { max-height: 180px; overflow-y: auto; font-size: 0.9rem; background: #0e1525; padding: 10px; border-radius: 8px; }
+  .log { max-height: 220px; overflow-y: auto; font-size: 0.9rem; background: #0e1525; padding: 10px; border-radius: 8px; }
   .crew-vote { background: #1a2238; padding: 10px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
   .hidden { display: none; }
   .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
@@ -74,6 +74,14 @@
     font-size: 1.1rem;
     font-weight: 700;
     margin: 0 0 10px;
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 800px) {
+    .columns { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -117,24 +125,30 @@
       <p id="mission-progress" style="margin:4px 0 0;font-size:0.9rem;"></p>
     </div>
 
-    <div class="card">
-      <h3>System Status</h3>
-      <div id="resource-bars"></div>
-    </div>
+    <div class="columns">
+      <!-- Left Column -->
+      <div>
+        <div class="card">
+          <h3>System Status</h3>
+          <div id="resource-bars"></div>
+        </div>
+        <div class="card">
+          <h3>Focus for This Stage</h3>
+          <div id="focus-buttons"></div>
+        </div>
+      </div>
 
-    <div class="card">
-      <h3>Focus for This Stage</h3>
-      <div id="focus-buttons"></div>
-    </div>
-
-    <div class="card">
-      <h3>Mission Log</h3>
-      <div id="log" class="log"></div>
-    </div>
-
-    <div id="event-area" class="card nominal">
-      <div class="status-title" id="status-title">All systems nominal</div>
-      <div id="event-content">No immediate action required. Mission proceeding normally.</div>
+      <!-- Right Column -->
+      <div>
+        <div class="card">
+          <h3>Mission Log</h3>
+          <div id="log" class="log"></div>
+        </div>
+        <div id="event-area" class="card nominal">
+          <div class="status-title" id="status-title">All systems nominal</div>
+          <div id="event-content">No immediate action required. Mission proceeding normally.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -288,7 +302,6 @@ function advanceOneSol() {
   if (state.stage === 3 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 4; updateStage(); addLog("Entered Emergency Response stage."); }
   if (state.stage === 4 && state.sol >= 30) { state.stage = 5; updateStage(); addLog("Entered Mission Evaluation stage."); endMission(true); }
 
-  // Follow-up notes from earlier humorous events
   if (state.pendingFollowUps.length && Math.random() < 0.25) {
     const note = state.pendingFollowUps.shift();
     addLog(note);
@@ -349,7 +362,6 @@ function getEventPool() {
   const loc = state.location;
   const pool = [];
 
-  // Location-specific events
   if (loc.type === "moon") {
     pool.push({
       id: "moon_temp",
@@ -403,7 +415,6 @@ function getEventPool() {
     });
   }
 
-  // General serious events
   pool.push(
     {
       id: "solar_storm",
@@ -429,7 +440,6 @@ function getEventPool() {
     }
   );
 
-  // Humorous events (do not cause mission failure)
   pool.push(
     {
       id: "escaped_water",
@@ -513,7 +523,6 @@ function triggerRandomEvent() {
 
 function showEvent(ev) {
   state.paused = true;
-  const area = document.getElementById('event-area');
 
   const crewOpinions = state.crew.map(c => {
     let preferred = 0;
