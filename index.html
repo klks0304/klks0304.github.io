@@ -83,6 +83,13 @@
   @media (max-width: 800px) {
     .columns { grid-template-columns: 1fr; }
   }
+  .quote {
+    font-style: italic;
+    margin: 16px 0;
+    padding: 12px;
+    background: #1e2a44;
+    border-left: 4px solid var(--accent);
+  }
 </style>
 </head>
 <body>
@@ -126,7 +133,6 @@
     </div>
 
     <div class="columns">
-      <!-- Left Column -->
       <div>
         <div class="card">
           <h3>System Status</h3>
@@ -137,8 +143,6 @@
           <div id="focus-buttons"></div>
         </div>
       </div>
-
-      <!-- Right Column -->
       <div>
         <div class="card">
           <h3>Mission Log</h3>
@@ -195,6 +199,14 @@ const focuses = [
   { id: 'explore', name: 'Science Exploration', desc: 'Experiments & sampling', effect: { food: 1, water: 2, power: -3, shield: -1, morale: 3 } }
 ];
 
+const astronautQuotes = [
+  { quote: "That's one small step for man, one giant leap for mankind.", author: "Neil Armstrong" },
+  { quote: "Failure is not an option.", author: "Gene Kranz" },
+  { quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", author: "Konstantin Tsiolkovsky" },
+  { quote: "To go places and do things that have never been done before – that’s what living is all about.", author: "Michael Collins" },
+  { quote: "I believe every human has a finite number of heartbeats. I don't intend to waste any of mine.", author: "Neil Armstrong" }
+];
+
 const state = {
   sol: 0, running: false, paused: false, speed: 1, interval: null,
   stage: 1, focus: null,
@@ -204,6 +216,8 @@ const state = {
   log: [], decisions: [], resourceHistory: [],
   usedEvents: new Set(),
   pendingFollowUps: [],
+  humorousEventsTriggered: 0,
+  maxHumorousEarly: 2,
   crew: [
     { role: "Engineer", priority: "equipment and power", bias: "power" },
     { role: "Doctor", priority: "crew safety", bias: "safety" },
@@ -307,7 +321,15 @@ function advanceOneSol() {
     addLog(note);
   }
 
-  if (Math.random() < 0.20) triggerRandomEvent();
+  // Event trigger logic
+  let eventChance = 0.18;
+  if (state.stage === 1 && state.sol <= 8 && state.humorousEventsTriggered < state.maxHumorousEarly) {
+    eventChance = 0.35; // higher chance early for humorous
+  } else if (state.stage > 1) {
+    eventChance = 0.15; // normal after arrival
+  }
+
+  if (Math.random() < eventChance) triggerRandomEvent();
 
   for (const [k, v] of Object.entries(state.resources)) {
     if (v <= 0) {
@@ -362,6 +384,7 @@ function getEventPool() {
   const loc = state.location;
   const pool = [];
 
+  // Location-specific and serious events (always available)
   if (loc.type === "moon") {
     pool.push({
       id: "moon_temp",
@@ -440,72 +463,75 @@ function getEventPool() {
     }
   );
 
-  pool.push(
-    {
-      id: "escaped_water",
-      title: "The Last Sip Escaped",
-      desc: "“Commander! My water got away!” An astronaut is chasing a floating water droplet with their mouth open. It is slowly drifting toward the control panel…",
-      fact: "In microgravity, water forms spheres due to surface tension and does not fall to the floor.",
-      humorous: true,
-      options: [
-        { text: "Chase it with your mouth and try to drink it", effect: { morale: 3 }, tradeoff: "Morale up, but the droplet may split or hit equipment" },
-        { text: "Use an absorbent tool to recover it", effect: { morale: 1, power: -1 }, tradeoff: "Takes a little time, lowers equipment risk" },
-        { text: "Isolate the control panel first, then recover the droplet", effect: { power: -2 }, tradeoff: "Takes more time but improves equipment safety" }
-      ],
-      followUp: [
-        "A small water droplet from earlier was found stuck on a button.",
-        "Residue from the recovered water droplet needed extra wiping later."
-      ]
-    },
-    {
-      id: "colorful_particles",
-      title: "Colorful Experiment Particles Escaped",
-      desc: "A scientist opened a sample container and the latch failed. A small packet of colorful particles floated out like cosmic fireworks. The engineer stared for three seconds: “Those were tomorrow’s experiment materials.”",
-      fact: "In microgravity, fine particles do not settle quickly and can remain suspended in airflow.",
-      humorous: true,
-      options: [
-        { text: "Film the floating particles for science", effect: { morale: 2 }, tradeoff: "May gain observation data, but particles keep spreading", isExperiment: true },
-        { text: "Immediately seal the area and recover the particles", effect: { power: -1 }, tradeoff: "Delays research but reduces contamination and material loss" },
-        { text: "Assess particle type and spread, then clean by procedure", effect: { morale: -1 }, tradeoff: "Takes time but allows proper protection and recovery" }
-      ],
-      followUp: [
-        "A few colorful particles were later found on equipment surfaces.",
-        "Minor cross-contamination was logged in another experiment area."
-      ]
-    },
-    {
-      id: "spinning_drill",
-      title: "Who’s Spinning?",
-      desc: "Someone forgot to secure themselves while using a power drill. They started slowly rotating in the cabin with the drill still running, shouting “I can’t stop!”",
-      fact: "In microgravity there is no friction to hold you in place. Any reaction force will make you rotate.",
-      humorous: true,
-      options: [
-        { text: "Others grab them and help turn off the drill", effect: { oxygen: -1, morale: 1 }, tradeoff: "Stops the spin quickly but uses a little time and oxygen" },
-        { text: "Let them try to hook a foot and stop themselves", effect: { morale: -1 }, tradeoff: "Saves crew effort but they may bump equipment" },
-        { text: "Pause nearby work so no one gets hit", effect: { morale: -2 }, tradeoff: "Safest option but delays other tasks slightly" }
-      ],
-      followUp: [
-        "A couple of small tools from the drill incident were found later.",
-        "A storage bag was bumped and needed reorganizing."
-      ]
-    },
-    {
-      id: "cookie_crumbs",
-      title: "Cookie Crumb Blizzard",
-      desc: "Someone opened a pack of cookies in microgravity. Crumbs exploded outward like a snowstorm and stuck to screens and clothes.",
-      fact: "Small particles float indefinitely in microgravity and can be drawn into ventilation or equipment.",
-      humorous: true,
-      options: [
-        { text: "Everyone masks up and vacuum the area", effect: { morale: -1, power: -1 }, tradeoff: "Uses time and consumables but cleans thoroughly" },
-        { text: "Only clean crumbs near equipment", effect: { morale: 1 }, tradeoff: "Faster but some crumbs remain in the air" },
-        { text: "Treat it as snack time and clean while eating", effect: { morale: 4, food: 1 }, tradeoff: "Boosts morale but lower cleaning efficiency" }
-      ],
-      followUp: [
-        "Cookie crumbs were later found in a screen bezel.",
-        "A few crumbs reached a vent and slightly reduced airflow."
-      ]
-    }
-  );
+  // Humorous events — only early
+  if (state.stage === 1 && state.sol <= 8 && state.humorousEventsTriggered < state.maxHumorousEarly) {
+    pool.push(
+      {
+        id: "escaped_water",
+        title: "The Last Sip Escaped",
+        desc: "“Commander! My water got away!” An astronaut is chasing a floating water droplet with their mouth open. It is slowly drifting toward the control panel…",
+        fact: "In microgravity, water forms spheres due to surface tension and does not fall to the floor.",
+        humorous: true,
+        options: [
+          { text: "Chase it with your mouth and try to drink it", effect: { morale: 3 }, tradeoff: "Morale up, but the droplet may split or hit equipment" },
+          { text: "Use an absorbent tool to recover it", effect: { morale: 1, power: -1 }, tradeoff: "Takes a little time, lowers equipment risk" },
+          { text: "Isolate the control panel first, then recover the droplet", effect: { power: -2 }, tradeoff: "Takes more time but improves equipment safety" }
+        ],
+        followUp: [
+          "A small water droplet from earlier was found stuck on a button.",
+          "Residue from the recovered water droplet needed extra wiping later."
+        ]
+      },
+      {
+        id: "colorful_particles",
+        title: "Colorful Experiment Particles Escaped",
+        desc: "A scientist opened a sample container and the latch failed. A small packet of colorful particles floated out like cosmic fireworks. The engineer stared for three seconds: “Those were tomorrow’s experiment materials.”",
+        fact: "In microgravity, fine particles do not settle quickly and can remain suspended in airflow.",
+        humorous: true,
+        options: [
+          { text: "Film the floating particles for science", effect: { morale: 2 }, tradeoff: "May gain observation data, but particles keep spreading", isExperiment: true },
+          { text: "Immediately seal the area and recover the particles", effect: { power: -1 }, tradeoff: "Delays research but reduces contamination and material loss" },
+          { text: "Assess particle type and spread, then clean by procedure", effect: { morale: -1 }, tradeoff: "Takes time but allows proper protection and recovery" }
+        ],
+        followUp: [
+          "A few colorful particles were later found on equipment surfaces.",
+          "Minor cross-contamination was logged in another experiment area."
+        ]
+      },
+      {
+        id: "spinning_drill",
+        title: "Who’s Spinning?",
+        desc: "Someone forgot to secure themselves while using a power drill. They started slowly rotating in the cabin with the drill still running, shouting “I can’t stop!”",
+        fact: "In microgravity there is no friction to hold you in place. Any reaction force will make you rotate.",
+        humorous: true,
+        options: [
+          { text: "Others grab them and help turn off the drill", effect: { oxygen: -1, morale: 1 }, tradeoff: "Stops the spin quickly but uses a little time and oxygen" },
+          { text: "Let them try to hook a foot and stop themselves", effect: { morale: -1 }, tradeoff: "Saves crew effort but they may bump equipment" },
+          { text: "Pause nearby work so no one gets hit", effect: { morale: -2 }, tradeoff: "Safest option but delays other tasks slightly" }
+        ],
+        followUp: [
+          "A couple of small tools from the drill incident were found later.",
+          "A storage bag was bumped and needed reorganizing."
+        ]
+      },
+      {
+        id: "cookie_crumbs",
+        title: "Cookie Crumb Blizzard",
+        desc: "Someone opened a pack of cookies in microgravity. Crumbs exploded outward like a snowstorm and stuck to screens and clothes.",
+        fact: "Small particles float indefinitely in microgravity and can be drawn into ventilation or equipment.",
+        humorous: true,
+        options: [
+          { text: "Everyone masks up and vacuum the area", effect: { morale: -1, power: -1 }, tradeoff: "Uses time and consumables but cleans thoroughly" },
+          { text: "Only clean crumbs near equipment", effect: { morale: 1 }, tradeoff: "Faster but some crumbs remain in the air" },
+          { text: "Treat it as snack time and clean while eating", effect: { morale: 4, food: 1 }, tradeoff: "Boosts morale but lower cleaning efficiency" }
+        ],
+        followUp: [
+          "Cookie crumbs were later found in a screen bezel.",
+          "A few crumbs reached a vent and slightly reduced airflow."
+        ]
+      }
+    );
+  }
 
   return pool;
 }
@@ -516,8 +542,11 @@ function triggerRandomEvent() {
     state.usedEvents.clear();
     pool = getEventPool();
   }
+  if (pool.length === 0) return;
+
   const ev = pool[Math.floor(Math.random() * pool.length)];
   state.usedEvents.add(ev.id);
+  if (ev.humorous) state.humorousEventsTriggered++;
   showEvent(ev);
 }
 
@@ -601,12 +630,18 @@ function endMission(success, reason = "") {
     ? state.decisions.map(d => `• ${d.title} → ${d.choice}`).join("<br>")
     : "No major decisions recorded";
 
+  const q = astronautQuotes[Math.floor(Math.random() * astronautQuotes.length)];
+
   document.getElementById('end-summary').innerHTML = `
     <p>${success ? "You successfully reached the Mission Evaluation stage." : "Mission aborted: " + reason}</p>
     <p><strong>Landing Site:</strong> ${state.location.name} (${state.location.special})</p>
     <p><strong>Final Resource Status:</strong><br>${finalRes}</p>
     <p><strong>Experiments Completed:</strong> ${state.experimentsDone} / ${state.maxExperiments}</p>
     <p><strong>Decision Log:</strong><br>${decisionSummary}</p>
+    <div class="quote">
+      “${q.quote}”<br>
+      <span style="opacity:0.8">— ${q.author}</span>
+    </div>
     <div class="fact">
       <strong>Key Takeaway:</strong> Space missions are full of engineering trade-offs. There is rarely a perfect answer — only the most reasonable choice given the resources available at that moment.
     </div>
