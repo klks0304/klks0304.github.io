@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1in746 — Be One of the Astronauts</title>
+<title>1in746 — The Hidden Figures</title>
 <style>
   :root {
     --bg: #0b1020; --card: #151c30; --accent: #4fc3f7; --good: #66bb6a;
@@ -39,15 +39,15 @@
 </head>
 <body>
 <div class="container">
-  <h1>🚀 1in746 — Be One of the Astronauts</h1>
-  <p class="subtitle">From Launch to Return · Engineering Trade-offs Simulation (with NASA Data)</p>
+  <h1>🚀 1in746 — The Hidden Figures</h1>
+  <p class="subtitle">From Launch to Return · Engineering Trade-offs with Real NASA Data</p>
 
   <div id="intro-screen" class="card">
     <h2>What is this?</h2>
-    <p>This simulation uses real NASA data (DONKI solar activity + APOD) to influence mission events while you balance life support, power, shielding, and food.</p>
+    <p>Inspired by the women who made spaceflight possible. Balance life support, power, radiation, and food while facing real NASA space weather data.</p>
     <div class="fact">
       <strong>Why “1 in 746”?</strong><br>
-      Only about 746 humans have reached space. Experience the trade-offs that decide success or failure.<br>
+      Only about 746 humans have reached space. Sally Ride and Peggy Whitson are among the pioneers who expanded what was possible.<br>
       <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
       <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
     </div>
@@ -139,11 +139,15 @@ const focuses = [
 
 const successQuotes = [
   { quote: "That's one small step for man, one giant leap for mankind.", author: "Neil Armstrong" },
-  { quote: "Failure is not an option.", author: "Gene Kranz" }
+  { quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", author: "Konstantin Tsiolkovsky" },
+  { quote: "I would like to be remembered as someone who was not afraid to do what she wanted to do.", author: "Sally Ride" },
+  { quote: "Spaceflight is not about the destination, it's about the journey and what we learn along the way.", author: "Peggy Whitson" }
 ];
+
 const failureQuotes = [
   { quote: "Space is hard. Every mission teaches us something.", author: "NASA Lessons Learned" },
-  { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" }
+  { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" },
+  { quote: "The important achievement of Apollo was demonstrating that humanity is not forever chained to this planet.", author: "Neil Armstrong" }
 ];
 
 const state = {
@@ -162,9 +166,9 @@ const state = {
   ]
 };
 
-// ---------- NASA API Calls ----------
+// ---------- NASA API ----------
 async function checkDONKI() {
-  if (NASA_API_KEY === "Mm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") {
+  if (NASA_API_KEY === "YMm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") {
     addLog("NASA API key not set — using simulated solar data.");
     state.solarActivity = { active: Math.random() < 0.3, info: "Simulated CME activity" };
     return;
@@ -193,7 +197,7 @@ async function fetchAPOD() {
     const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`);
     const data = await res.json();
     if (data.title) state.apod = { title: data.title, url: data.url };
-  } catch (e) { /* silent */ }
+  } catch (e) {}
 }
 
 function setEventStatus(mode, title, contentHtml) {
@@ -216,6 +220,7 @@ function startBirth() {
     <p><strong>Profession:</strong> ${state.profession.name}</p>
     <p><strong>Landing Site:</strong> ${state.location.name}</p>
     <p><strong>Role:</strong> ${state.isCommander ? '<span style="color:#ffa726">Commander</span>' : 'Crew Member'}</p>
+    <p style="font-size:0.9rem;margin-top:8px;">Team inspiration: Sally Ride & Peggy Whitson</p>
   `;
 }
 
@@ -240,7 +245,7 @@ function updateProgress() {
   document.getElementById('mission-progress').textContent = `Experiments: ${state.experimentsDone} / ${state.maxExperiments}`;
 }
 
-function tick() {
+  function tick() {
   if (state.paused || !state.running) return;
   for (let i = 0; i < state.speed; i++) { advanceOneSol(); if (!state.running) break; }
   document.getElementById('sol-display').textContent = `Sol ${state.sol}`;
@@ -258,7 +263,8 @@ function advanceOneSol() {
 
   if (state.focus) {
     const f = focuses.find(x => x.id === state.focus);
-    if (f) for (const [k, v] of Object.entries(f.effect)) state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+    if (f) for (const [k, v] of Object.entries(f.effect)) 
+      state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
   }
 
   if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived. Base setup begins."); }
@@ -267,15 +273,17 @@ function advanceOneSol() {
   if (state.stage === 4 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 5; updateStage(); addLog("Return journey begins."); }
   if (state.stage === 5 && state.sol >= 28) { state.stage = 6; updateStage(); endMission(true); }
 
-  // Daily reports with possible APOD
   if (Math.random() < 0.35) {
     if (state.apod && Math.random() < 0.4) {
       addLog(`Daily Report: NASA APOD — ${state.apod.title} <a href="${state.apod.url}" target="_blank">View</a>`, true);
+    } else if (Math.random() < 0.3) {
+      addLog("Daily Report: Remembering Sally Ride — first American woman in space.", true);
     } else {
       addLog("Daily Report: Systems nominal. Science data being logged.", true);
     }
   }
-  if (state.pendingFollowUps.length && Math.random() < 0.3) addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
+  if (state.pendingFollowUps.length && Math.random() < 0.3) 
+    addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
 
   let chance = 0.14;
   if (state.solarActivity.active) chance += 0.12;
@@ -342,6 +350,31 @@ function getEventPool() {
     ]
   });
 
+  // Sally Ride / Peggy Whitson inspired events
+  pool.push({
+    id: "sally_ride_legacy", title: "Sally Ride Legacy Moment",
+    desc: "A crew member recalls Sally Ride’s words while facing a difficult systems choice.",
+    fact: '"I would like to be remembered as someone who was not afraid to do what she wanted to do." — Sally Ride',
+    options: [
+      { text: "Prioritize the science objective", effect: { morale: 4, power: -3 }, tradeoff: "Honor the mission spirit, use resources", isExperiment: true },
+      { text: "Focus on safety first", effect: { shield: 3, morale: 1 }, tradeoff: "Protect the crew" },
+      { text: "Balance both carefully", effect: { power: -1, morale: 2 }, tradeoff: "Moderate approach" }
+    ]
+  });
+
+  if (state.stage >= 3) {
+    pool.push({
+      id: "whitson_endurance", title: "Peggy Whitson Endurance Check",
+      desc: "Long-duration fatigue is setting in. Peggy Whitson held the record for most time in space.",
+      fact: "Peggy Whitson spent 665 days in space across multiple missions.",
+      options: [
+        { text: "Schedule extra rest", effect: { morale: 5, food: -1 }, tradeoff: "Recover morale, use supplies" },
+        { text: "Push through with training", effect: { morale: -1, power: -1 }, tradeoff: "Maintain schedule" },
+        { text: "Reduce non-critical tasks", effect: { morale: 2, power: 2 }, tradeoff: "Save energy" }
+      ]
+    });
+  }
+
   if (state.stage === 5) {
     pool.push({
       id: "meteor", title: "Meteoroid Strike",
@@ -407,7 +440,8 @@ function showEvent(ev) {
 function resolveEvent(idx) {
   const ev = window._currentEvent;
   const choice = ev.options[idx];
-  for (const [k, v] of Object.entries(choice.effect)) state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
+  for (const [k, v] of Object.entries(choice.effect)) 
+    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
   if (choice.isExperiment) state.experimentsDone = Math.min(2, state.experimentsDone + 1);
 
   const majority = window._crewOpinions.filter(o => o.preferred === idx).length >= 2;
@@ -428,14 +462,19 @@ function endMission(success, reason = "") {
   document.getElementById('end-title').textContent = success ? "Returned to Earth — Mission Complete" : "Mission Failed";
   const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
   const decisionList = state.decisions.map(d => `• ${d.title} → My choice: ${d.myChoice} | Commander: ${d.commanderDecision}`).join("<br>") || "None";
-  const q = (success ? successQuotes : failureQuotes)[Math.floor(Math.random() * 2)];
+  const q = (success ? successQuotes : failureQuotes)[Math.floor(Math.random() * (success ? successQuotes.length : failureQuotes.length))];
   document.getElementById('end-summary').innerHTML = `
     <p>${success ? "You successfully returned to Earth." : "Mission aborted: " + reason}</p>
     <p><strong>NASA Data Used:</strong> ${state.solarActivity.info || "None detected"}</p>
     <p><strong>Final Resources:</strong> ${finalRes}</p>
+    <p><strong>Experiments:</strong> ${state.experimentsDone} / 2</p>
     <p><strong>Decisions:</strong><br>${decisionList}</p>
-    <div class="quote">“${q.quote}” — ${q.author}</div>
-    <div class="fact"><a href="https://api.nasa.gov/" target="_blank">NASA APIs</a> · <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a></div>
+    <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
+    <div class="fact">
+      Inspired by Sally Ride, Peggy Whitson, and the Hidden Figures who made spaceflight possible.<br>
+      <a href="https://api.nasa.gov/" target="_blank">NASA APIs</a> · 
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
+    </div>
   `;
 }
 </script>
