@@ -164,7 +164,7 @@ const state = {
 
 // ---------- NASA API Calls ----------
 async function checkDONKI() {
-  if (NASA_API_KEY === "YOUR_NASA_API_KEY") {
+  if (NASA_API_KEY === "Mm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") {
     addLog("NASA API key not set — using simulated solar data.");
     state.solarActivity = { active: Math.random() < 0.3, info: "Simulated CME activity" };
     return;
@@ -188,7 +188,7 @@ async function checkDONKI() {
 }
 
 async function fetchAPOD() {
-  if (NASA_API_KEY === "YOUR_NASA_API_KEY") return;
+  if (NASA_API_KEY === "Mm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") return;
   try {
     const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`);
     const data = await res.json();
