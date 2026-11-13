@@ -433,22 +433,33 @@ function getEventPool() {
 
   // Sally Ride / Peggy Whitson inspired events
   // Sally Ride special event — at most once per game
-if (!state.usedEvents.has("sally_ride_legacy") && Math.random() < 0.15) {
-  pool.push({
-    id: "sally_ride_legacy",
-    title: "Sally Ride Moment",
-    desc: "A crew member recalls Sally Ride’s first flight while facing a systems decision.",
-    fact: '"I would like to be remembered as someone who was not afraid to do what she wanted to do." — Sally Ride',
-    options: [
-      { text: "Prioritize the science objective", effect: { morale: 4, power: -3 }, tradeoff: "Honor the mission spirit, use resources", isExperiment: true },
-      { text: "Focus on safety first", effect: { shield: 3, morale: 1 }, tradeoff: "Protect the crew" },
-      { text: "Balance both carefully", effect: { power: -1, morale: 2 }, tradeoff: "Moderate approach" }
-    ]
-  });
-}
-  if (state.stage >= 3) {
+// Low-probability female astronaut special events (at most one per game)
+if (
+  !state.usedEvents.has("sally_ride_legacy") &&
+  !state.usedEvents.has("whitson_endurance") &&
+  !state.usedEvents.has("jemison_moment") &&
+  !state.usedEvents.has("koch_endurance") &&
+  !state.usedEvents.has("meir_eva") &&
+  Math.random() < 0.10
+) {
+  const pioneer = Math.random();
+
+  if (pioneer < 0.25) {
     pool.push({
-      id: "whitson_endurance", title: "Peggy Whitson Endurance Check",
+      id: "sally_ride_legacy",
+      title: "Sally Ride Moment",
+      desc: "A crew member recalls Sally Ride’s first flight while facing a systems decision.",
+      fact: '"I would like to be remembered as someone who was not afraid to do what she wanted to do." — Sally Ride',
+      options: [
+        { text: "Prioritize the science objective", effect: { morale: 4, power: -3 }, tradeoff: "Honor the mission spirit, use resources", isExperiment: true },
+        { text: "Focus on safety first", effect: { shield: 3, morale: 1 }, tradeoff: "Protect the crew" },
+        { text: "Balance both carefully", effect: { power: -1, morale: 2 }, tradeoff: "Moderate approach" }
+      ]
+    });
+  } else if (pioneer < 0.5) {
+    pool.push({
+      id: "whitson_endurance",
+      title: "Peggy Whitson Endurance Check",
       desc: "Long-duration fatigue is setting in. Peggy Whitson held the record for most time in space.",
       fact: "Peggy Whitson spent 665 days in space across multiple missions.",
       options: [
@@ -457,7 +468,32 @@ if (!state.usedEvents.has("sally_ride_legacy") && Math.random() < 0.15) {
         { text: "Reduce non-critical tasks", effect: { morale: 2, power: 2 }, tradeoff: "Save energy" }
       ]
     });
+  } else if (pioneer < 0.75) {
+    pool.push({
+      id: "jemison_moment",
+      title: "Mae Jemison Moment",
+      desc: "The crew discusses how Mae Jemison balanced science and teamwork on her mission.",
+      fact: "Mae Jemison was the first African American woman in space.",
+      options: [
+        { text: "Emphasize collaborative science", effect: { morale: 4, power: -2 }, tradeoff: "Strengthen team, use resources", isExperiment: true },
+        { text: "Keep procedures strict", effect: { shield: 2, morale: 1 }, tradeoff: "Prioritize safety and order" },
+        { text: "Focus on efficiency", effect: { power: 2, morale: -1 }, tradeoff: "Save resources, lower morale" }
+      ]
+    });
+  } else {
+    pool.push({
+      id: "koch_endurance",
+      title: "Christina Koch Endurance Challenge",
+      desc: "The mission is stretching longer than planned. Christina Koch set the record for the longest single spaceflight by a woman.",
+      fact: "Christina Koch spent 328 days in space on a single mission.",
+      options: [
+        { text: "Extend rest periods", effect: { morale: 5, food: -2 }, tradeoff: "Protect long-term health" },
+        { text: "Maintain original schedule", effect: { power: -1, morale: -2 }, tradeoff: "Stay on timeline" },
+        { text: "Reduce non-essential experiments", effect: { power: 3, morale: 1 }, tradeoff: "Preserve resources" }
+      ]
+    });
   }
+}
 
   if (state.stage === 5) {
     pool.push({
