@@ -333,6 +333,16 @@ function advanceOneSol() {
   if (state.stage === 1 && state.humorousEventsTriggered < 2) chance = 0.28;
   if (Math.random() < chance) triggerRandomEvent();
 
+  if (Math.random() < 0.15) {
+      const narrative = getDONKINarrative();
+    
+      if (narrative) {
+        addLog(
+          `${narrative.title}: ${narrative.text}`
+        );
+      }
+    }
+      
   for (const [k, v] of Object.entries(state.resources)) {
     if (v <= 0) { endMission(false, `Critical system “${k}” collapsed.`); return; }
   }
@@ -347,12 +357,20 @@ function getDONKINarrative() {
     Math.floor(Math.random() * state.donki.length)
   ];
 
+  const date = event.date
+    ? event.date.slice(0, 10)
+    : "an unknown date";
+
   return {
+    id: event.id,
+    type: "narrative",
     title: "NASA Space Weather Report",
+
     text:
       `NASA recorded a solar energetic particle event ` +
-      `on ${event.date}. These particles can pose ` +
-      `radiation risks to astronauts in space.`,
+      `on ${date}. These high-energy particles can ` +
+      `increase radiation risks for astronauts in space.`,
+
     source: event.source,
     requiresDecision: false
   };
