@@ -6,62 +6,27 @@
 <title>1in746 — Be One of the Astronauts</title>
 <style>
   :root {
-    --bg: #0b1020;
-    --card: #151c30;
-    --accent: #4fc3f7;
-    --good: #66bb6a;
-    --warn: #ffa726;
-    --danger: #ef5350;
-    --text: #e8eaf6;
-    --nominal: #1e2a44;
-    --decision: #3e2a1a;
+    --bg: #0b1020; --card: #151c30; --accent: #4fc3f7; --good: #66bb6a;
+    --warn: #ffa726; --danger: #ef5350; --text: #e8eaf6;
+    --nominal: #1e2a44; --decision: #3e2a1a;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
-  }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
   .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
   .subtitle { opacity: 0.85; margin-bottom: 20px; }
-  .card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 16px;
-    border: 1px solid #2a3550;
-    transition: background 0.3s, border-color 0.3s;
-  }
-  button {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    margin: 4px;
-  }
+  .card { background: var(--card); border-radius: 12px; padding: 18px; margin-bottom: 16px; border: 1px solid #2a3550; transition: background 0.3s, border-color 0.3s; }
+  button { background: var(--accent); color: #000; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; margin: 4px; }
   button.secondary { background: #3949ab; color: #fff; }
   .bar-wrap { margin: 8px 0; }
   .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; }
-  .bar {
-    height: 10px;
-    background: #2a3550;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: 4px;
-  }
+  .bar { height: 10px; background: #2a3550; border-radius: 5px; overflow: hidden; margin-top: 4px; }
   .bar-fill { height: 100%; transition: width 0.3s; }
   .log { max-height: 240px; overflow-y: auto; font-size: 0.9rem; background: #0e1525; padding: 10px; border-radius: 8px; }
   .crew-vote { background: #1a2238; padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 0.88rem; }
   .hidden { display: none; }
   .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
   .fact { background: #1e2a44; padding: 8px 12px; border-left: 3px solid var(--accent); margin: 10px 0; font-size: 0.9rem; }
-  .end-summary { line-height: 1.7; }
   #event-area.nominal { background: var(--nominal); border-color: #3949ab; }
   #event-area.decision { background: var(--decision); border-color: var(--warn); }
   .status-title { font-size: 1.1rem; font-weight: 700; margin: 0 0 10px; }
@@ -75,16 +40,16 @@
 <body>
 <div class="container">
   <h1>🚀 1in746 — Be One of the Astronauts</h1>
-  <p class="subtitle">From Launch to Return · Engineering Trade-offs Simulation</p>
+  <p class="subtitle">From Launch to Return · Engineering Trade-offs Simulation (with NASA Data)</p>
 
   <div id="intro-screen" class="card">
     <h2>What is this?</h2>
-    <p>This is a comprehensive space mission simulation from launch to return to Earth. You will balance life support, power, radiation shielding, and food while making engineering decisions under uncertainty.</p>
+    <p>This simulation uses real NASA data (DONKI solar activity + APOD) to influence mission events while you balance life support, power, shielding, and food.</p>
     <div class="fact">
       <strong>Why “1 in 746”?</strong><br>
-      Only about 746 humans have ever reached space. This simulation lets you experience the trade-offs that decide mission success or failure.<br>
+      Only about 746 humans have reached space. Experience the trade-offs that decide success or failure.<br>
       <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
     </div>
     <button onclick="startBirth()">Start Random Assignment</button>
   </div>
@@ -115,20 +80,11 @@
 
     <div class="columns">
       <div>
-        <div class="card">
-          <h3>System Status</h3>
-          <div id="resource-bars"></div>
-        </div>
-        <div class="card">
-          <h3>Focus</h3>
-          <div id="focus-buttons"></div>
-        </div>
+        <div class="card"><h3>System Status</h3><div id="resource-bars"></div></div>
+        <div class="card"><h3>Focus</h3><div id="focus-buttons"></div></div>
       </div>
       <div>
-        <div class="card">
-          <h3>Mission Log</h3>
-          <div id="log" class="log"></div>
-        </div>
+        <div class="card"><h3>Mission Log</h3><div id="log" class="log"></div></div>
         <div id="event-area" class="card nominal">
           <div class="status-title" id="status-title">All systems nominal</div>
           <div id="event-content">No immediate action required.</div>
@@ -145,6 +101,10 @@
 </div>
 
 <script>
+// ========== PUT YOUR NASA API KEY HERE ==========
+const NASA_API_KEY = "Mm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh";
+// ===============================================
+
 const professions = [
   { name: "Aerospace Engineer", commanderChance: 0.28 },
   { name: "Scientist", commanderChance: 0.18 },
@@ -179,41 +139,62 @@ const focuses = [
 
 const successQuotes = [
   { quote: "That's one small step for man, one giant leap for mankind.", author: "Neil Armstrong" },
-  { quote: "Failure is not an option.", author: "Gene Kranz" },
-  { quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", author: "Konstantin Tsiolkovsky" }
+  { quote: "Failure is not an option.", author: "Gene Kranz" }
 ];
-
 const failureQuotes = [
   { quote: "Space is hard. Every mission teaches us something.", author: "NASA Lessons Learned" },
   { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" }
 ];
 
-const dailyReports = [
-  'Daily Report: Life support systems operating within normal parameters. <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>',
-  'Daily Report: Solar arrays generating expected power.',
-  'Daily Report: Sample collection completed. <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
-  'Daily Report: Experiment data logged. <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR Biology Archive</a>',
-  'Daily Report: Food production check. <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production Toolkit</a>',
-  'Daily Report: Radiation levels monitored. <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>'
-];
-
 const state = {
   sol: 0, running: false, paused: false, speed: 1, interval: null,
-  stage: 1, focus: null,
-  experimentsDone: 0, maxExperiments: 2,
+  stage: 1, focus: null, experimentsDone: 0, maxExperiments: 2,
   profession: null, location: null, isCommander: false,
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
-  log: [], decisions: [],
-  usedEvents: new Set(),
-  pendingFollowUps: [],
-  humorousEventsTriggered: 0,
-  maxHumorousTotal: 2,
+  log: [], decisions: [], usedEvents: new Set(), pendingFollowUps: [],
+  humorousEventsTriggered: 0, maxHumorousTotal: 2,
+  solarActivity: { active: false, info: "" },
+  apod: null,
   crew: [
     { role: "Engineer", priority: "power and equipment", bias: "power" },
     { role: "Doctor", priority: "crew safety", bias: "safety" },
     { role: "Scientist", priority: "science return", bias: "science" }
   ]
 };
+
+// ---------- NASA API Calls ----------
+async function checkDONKI() {
+  if (NASA_API_KEY === "YOUR_NASA_API_KEY") {
+    addLog("NASA API key not set — using simulated solar data.");
+    state.solarActivity = { active: Math.random() < 0.3, info: "Simulated CME activity" };
+    return;
+  }
+  try {
+    const end = new Date().toISOString().split('T')[0];
+    const start = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
+    const url = `https://api.nasa.gov/DONKI/CME?startDate=${start}&endDate=${end}&api_key=${NASA_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      state.solarActivity = { active: true, info: `${data.length} CME(s) detected recently` };
+      addLog(`NASA DONKI: ${state.solarActivity.info}. Solar storm risk elevated.`);
+    } else {
+      state.solarActivity = { active: false, info: "No recent CME" };
+    }
+  } catch (e) {
+    addLog("DONKI fetch failed — continuing with local data.");
+    state.solarActivity = { active: false, info: "" };
+  }
+}
+
+async function fetchAPOD() {
+  if (NASA_API_KEY === "YOUR_NASA_API_KEY") return;
+  try {
+    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`);
+    const data = await res.json();
+    if (data.title) state.apod = { title: data.title, url: data.url };
+  } catch (e) { /* silent */ }
+}
 
 function setEventStatus(mode, title, contentHtml) {
   const area = document.getElementById('event-area');
@@ -229,28 +210,23 @@ function startBirth() {
   state.profession = professions[Math.floor(Math.random() * professions.length)];
   state.location = locations[Math.floor(Math.random() * locations.length)];
   state.isCommander = Math.random() < state.profession.commanderChance;
-
   document.getElementById('intro-screen').classList.add('hidden');
   document.getElementById('birth-result').classList.remove('hidden');
-
   document.getElementById('birth-info').innerHTML = `
     <p><strong>Profession:</strong> ${state.profession.name}</p>
     <p><strong>Landing Site:</strong> ${state.location.name}</p>
-    <p><strong>Characteristic:</strong> ${state.location.special}</p>
     <p><strong>Role:</strong> ${state.isCommander ? '<span style="color:#ffa726">Commander</span>' : 'Crew Member'}</p>
-    <p style="margin-top:12px;font-size:0.9rem;">Mission: Launch → Operate outpost → Complete science → Return to Earth safely.</p>
   `;
 }
 
-function startMission() {
+async function startMission() {
   document.getElementById('birth-result').classList.add('hidden');
   document.getElementById('game-screen').classList.remove('hidden');
   document.getElementById('player-info').textContent = `${state.profession.name} · ${state.location.name}`;
-  updateStage();
-  renderBars();
-  renderFocusButtons();
-  updateProgress();
-  addLog("Mission launch. Early orbit phase begins.");
+  updateStage(); renderBars(); renderFocusButtons(); updateProgress();
+  addLog("Mission launch. Checking NASA space weather data...");
+  await checkDONKI();
+  await fetchAPOD();
   setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
   state.running = true;
   state.interval = setInterval(tick, 1000);
@@ -260,24 +236,19 @@ function updateStage() {
   const s = stages.find(x => x.id === state.stage);
   document.getElementById('stage-badge').textContent = `0${s.id} ${s.name}`;
 }
-
 function updateProgress() {
   document.getElementById('mission-progress').textContent = `Experiments: ${state.experimentsDone} / ${state.maxExperiments}`;
 }
 
 function tick() {
   if (state.paused || !state.running) return;
-  for (let i = 0; i < state.speed; i++) {
-    advanceOneSol();
-    if (!state.running) break;
-  }
+  for (let i = 0; i < state.speed; i++) { advanceOneSol(); if (!state.running) break; }
   document.getElementById('sol-display').textContent = `Sol ${state.sol}`;
   renderBars();
 }
 
 function advanceOneSol() {
   state.sol++;
-
   state.resources.oxygen = Math.max(0, state.resources.oxygen - 1.3);
   state.resources.power  = Math.max(0, state.resources.power  - 1.0);
   state.resources.food   = Math.max(0, state.resources.food   - 1.1);
@@ -287,71 +258,56 @@ function advanceOneSol() {
 
   if (state.focus) {
     const f = focuses.find(x => x.id === state.focus);
-    if (f) {
-      for (const [k, v] of Object.entries(f.effect)) {
-        state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
-      }
-    }
+    if (f) for (const [k, v] of Object.entries(f.effect)) state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
   }
 
-  if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived at destination. Base setup begins."); }
+  if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived. Base setup begins."); }
   if (state.stage === 2 && state.sol >= 10) { state.stage = 3; updateStage(); addLog("Base Survival phase."); }
   if (state.stage === 3 && state.sol >= 16) { state.stage = 4; updateStage(); addLog("Science Exploration phase."); }
   if (state.stage === 4 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 5; updateStage(); addLog("Return journey begins."); }
-  if (state.stage === 5 && state.sol >= 28) { state.stage = 6; updateStage(); addLog("Approaching Earth."); endMission(true); }
+  if (state.stage === 5 && state.sol >= 28) { state.stage = 6; updateStage(); endMission(true); }
 
-  if (Math.random() < 0.4) {
-    const report = dailyReports[Math.floor(Math.random() * dailyReports.length)];
-    addLog(report, true);
+  // Daily reports with possible APOD
+  if (Math.random() < 0.35) {
+    if (state.apod && Math.random() < 0.4) {
+      addLog(`Daily Report: NASA APOD — ${state.apod.title} <a href="${state.apod.url}" target="_blank">View</a>`, true);
+    } else {
+      addLog("Daily Report: Systems nominal. Science data being logged.", true);
+    }
   }
-  if (state.pendingFollowUps.length && Math.random() < 0.35) {
-    addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
-  }
+  if (state.pendingFollowUps.length && Math.random() < 0.3) addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
 
-  let chance = 0.15;
-  if (state.stage === 1 && state.humorousEventsTriggered < state.maxHumorousTotal) chance = 0.3;
+  let chance = 0.14;
+  if (state.solarActivity.active) chance += 0.12;
+  if (state.stage === 1 && state.humorousEventsTriggered < 2) chance = 0.28;
   if (Math.random() < chance) triggerRandomEvent();
 
   for (const [k, v] of Object.entries(state.resources)) {
-    if (v <= 0) {
-      endMission(false, `Critical system “${k}” collapsed.`);
-      return;
-    }
+    if (v <= 0) { endMission(false, `Critical system “${k}” collapsed.`); return; }
   }
 }
 
 function renderBars() {
-  const container = document.getElementById('resource-bars');
   const labels = { oxygen: "O₂ / Life Support", power: "Power", food: "Food", shield: "Radiation Shield", morale: "Morale", water: "Water" };
-  container.innerHTML = Object.keys(labels).map(k => {
+  document.getElementById('resource-bars').innerHTML = Object.keys(labels).map(k => {
     const val = Math.round(state.resources[k]);
     const color = val < 30 ? '#ef5350' : val < 60 ? '#ffa726' : '#66bb6a';
     return `<div class="bar-wrap"><div class="bar-label"><span>${labels[k]}</span><span>${val}</span></div><div class="bar"><div class="bar-fill" style="width:${val}%;background:${color}"></div></div></div>`;
   }).join('');
 }
-
 function renderFocusButtons() {
-  const container = document.getElementById('focus-buttons');
-  container.innerHTML = focuses.map(f => `
-    <button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')">${f.name}</button>
-  `).join('');
+  document.getElementById('focus-buttons').innerHTML = focuses.map(f =>
+    `<button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')">${f.name}</button>`
+  ).join('');
 }
-
-function chooseFocus(id) {
-  state.focus = id;
-  const f = focuses.find(x => x.id === id);
-  addLog(`Focus set to: ${f.name}`);
-  renderFocusButtons();
-}
-
+function chooseFocus(id) { state.focus = id; addLog(`Focus: ${focuses.find(x=>x.id===id).name}`); renderFocusButtons(); }
 function togglePause() { state.paused = !state.paused; }
 function setSpeed(s) { state.speed = s; }
-
 function addLog(msg, isDaily = false) {
   const line = isDaily ? `<span class="daily-report">Sol ${state.sol}: ${msg}</span>` : `Sol ${state.sol}: ${msg}`;
   state.log.push(line);
   const el = document.getElementById('log');
-  el.innerHTML = state.log.slice(-15).map(l => `<div>${l}</div>`).join('');
+  el.innerHTML = state.log.slice(-14).map(l => `<div>${l}</div>`).join('');
   el.scrollTop = el.scrollHeight;
 }
 
@@ -359,131 +315,65 @@ function getEventPool() {
   const pool = [];
   const loc = state.location;
 
-  if (loc.type === "moon") {
-    pool.push({
-      id: "moon_temp", title: "Temperature Extreme",
-      desc: "Day-night temperature swings are stressing thermal systems.",
-      options: [
-        { text: "Increase thermal power", effect: { power: -7, shield: 2 }, tradeoff: "Stable temperature, higher power use" },
-        { text: "Reduce activity", effect: { power: -1, morale: -3 }, tradeoff: "Save power, lower morale" },
-        { text: "Monitor only", effect: { shield: -5 }, tradeoff: "Save resources, accept risk" }
-      ]
-    });
-  }
   if (loc.type === "mars") {
     pool.push({
       id: "mars_dust", title: "Dust on Arrays",
-      desc: "Dust is reducing solar power output.",
-      fact: 'Real Mars surface data: <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
+      desc: "Dust is reducing solar power.",
+      fact: '<a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
       options: [
         { text: "EVA to clean", effect: { power: 10, oxygen: -4 }, tradeoff: "Restore power, use oxygen" },
-        { text: "Reduce load", effect: { power: -2, morale: -3 }, tradeoff: "Conserve, lower output" },
-        { text: "Wait for wind", effect: { power: -4 }, tradeoff: "No cost, slow recovery" }
+        { text: "Reduce load", effect: { power: -2, morale: -3 }, tradeoff: "Conserve power" },
+        { text: "Wait", effect: { power: -4 }, tradeoff: "No cost, slow recovery" }
       ]
     });
   }
 
-  pool.push(
-    {
-      id: "solar_storm", title: "Solar Storm",
-      desc: "Solar particle event approaching. Power and shield are limited.",
-      fact: 'Live space weather: <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">NASA DONKI</a>',
-      options: [
-        { text: "All to shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "High protection, high power cost" },
-        { text: "Partial shelter", effect: { shield: 5, power: -3 }, tradeoff: "Balanced protection" },
-        { text: "Continue work", effect: { shield: -8, morale: -3 }, tradeoff: "Save power, higher radiation risk" }
-      ]
-    },
-    {
-      id: "o2_drop", title: "Oxygen Efficiency Drop",
-      desc: "Life support electrolysis efficiency is falling.",
-      fact: 'Astronaut health data: <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>',
-      options: [
-        { text: "Repair system", effect: { oxygen: 7, power: -4 }, tradeoff: "Restore O₂, use power" },
-        { text: "Reduce activity", effect: { oxygen: 2, morale: -3 }, tradeoff: "Slow consumption" },
-        { text: "Monitor", effect: { oxygen: -5 }, tradeoff: "Save resources, risk grows" }
-      ]
-    },
-    {
-      id: "radiation", title: "Elevated Radiation",
-      desc: "Radiation levels are higher than expected.",
-      fact: 'ISS radiation measurements: <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>',
-      options: [
-        { text: "Increase shielding", effect: { shield: 8, power: -5 }, tradeoff: "Better protection, power cost" },
-        { text: "Limit EVA", effect: { shield: 3, morale: -2 }, tradeoff: "Reduce exposure" },
-        { text: "Continue as planned", effect: { shield: -6 }, tradeoff: "Accept higher dose" }
-      ]
-    }
-  );
+  const stormDesc = state.solarActivity.active
+    ? `Solar particle event risk elevated. NASA DONKI: ${state.solarActivity.info}.`
+    : "Solar particle event approaching.";
+  pool.push({
+    id: "solar_storm", title: "Solar Storm",
+    desc: stormDesc,
+    fact: '<a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI Space Weather</a>',
+    options: [
+      { text: "All to shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "High protection, high power cost" },
+      { text: "Partial shelter", effect: { shield: 5, power: -3 }, tradeoff: "Balanced" },
+      { text: "Continue", effect: { shield: -8, morale: -3 }, tradeoff: "Save power, higher risk" }
+    ]
+  });
 
   if (state.stage === 5) {
-    pool.push(
-      {
-        id: "meteor", title: "Meteoroid Strike",
-        desc: "A small meteoroid impacted the hull. Minor damage detected.",
-        options: [
-          { text: "Immediate repair", effect: { power: -4, shield: 3 }, tradeoff: "Fix damage, use power" },
-          { text: "Temporary patch", effect: { shield: 1, morale: -2 }, tradeoff: "Quick fix, residual risk" },
-          { text: "Monitor leak", effect: { oxygen: -3, shield: -2 }, tradeoff: "Save time, risk grows" }
-        ]
-      },
-      {
-        id: "return_power", title: "Power Shortage on Return",
-        desc: "Return trajectory requires more power than expected.",
-        options: [
-          { text: "Cut non-essential systems", effect: { power: 4, morale: -3 }, tradeoff: "Save power, lower comfort" },
-          { text: "Use reserve batteries", effect: { power: 6, shield: -1 }, tradeoff: "Immediate power, reduce reserves" },
-          { text: "Accept lower margin", effect: { power: -3 }, tradeoff: "No action, higher risk" }
-        ]
-      },
-      {
-        id: "food_short", title: "Food Shortage",
-        desc: "Food reserves are lower than planned for the return.",
-        fact: '<a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production in Space</a>',
-        options: [
-          { text: "Ration strictly", effect: { food: 3, morale: -4 }, tradeoff: "Stretch supplies, lower morale" },
-          { text: "Boost greenhouse", effect: { food: 5, power: -3, water: -2 }, tradeoff: "Grow more, resource cost" },
-          { text: "Maintain normal portions", effect: { food: -4 }, tradeoff: "Morale up, risk shortage" }
-        ]
-      }
-    );
+    pool.push({
+      id: "meteor", title: "Meteoroid Strike",
+      desc: "Small impact detected on hull.",
+      options: [
+        { text: "Repair now", effect: { power: -4, shield: 3 }, tradeoff: "Fix damage" },
+        { text: "Temporary patch", effect: { shield: 1, morale: -2 }, tradeoff: "Quick but incomplete" },
+        { text: "Monitor", effect: { oxygen: -3 }, tradeoff: "Risk grows" }
+      ]
+    });
   }
 
-  if (state.humorousEventsTriggered < state.maxHumorousTotal && state.stage <= 2) {
-    pool.push(
-      {
-        id: "water_escape", title: "Escaped Water Droplet",
-        desc: "A water droplet floated free and is drifting toward equipment.",
-        fact: 'In microgravity water forms spheres. <a href="https://www.youtube.com/watch?v=9ZEdApyi9Vw" target="_blank">Water on ISS</a>',
-        humorous: true,
-        options: [
-          { text: "Catch and drink it", effect: { morale: 3 }, tradeoff: "Morale up, possible mess" },
-          { text: "Absorb with tool", effect: { power: -1 }, tradeoff: "Clean recovery" },
-          { text: "Isolate equipment first", effect: { power: -2 }, tradeoff: "Safer, takes longer" }
-        ],
-        followUp: ["Earlier water droplet found on a panel."]
-      },
-      {
-        id: "cookie", title: "Cookie Crumb Storm",
-        desc: "Cookie crumbs floated everywhere after someone opened a pack.",
-        humorous: true,
-        options: [
-          { text: "Vacuum everything", effect: { power: -1, morale: -1 }, tradeoff: "Clean but time-consuming" },
-          { text: "Clean only near gear", effect: { morale: 1 }, tradeoff: "Faster, some crumbs remain" },
-          { text: "Snack and clean", effect: { morale: 4 }, tradeoff: "Higher morale, less efficient" }
-        ],
-        followUp: ["Cookie crumbs later found in a vent."]
-      }
-    );
+  if (state.humorousEventsTriggered < 2 && state.stage <= 2) {
+    pool.push({
+      id: "water_escape", title: "Escaped Water Droplet",
+      desc: "A water droplet is floating toward equipment.",
+      humorous: true,
+      options: [
+        { text: "Catch and drink", effect: { morale: 3 }, tradeoff: "Fun but messy" },
+        { text: "Absorb it", effect: { power: -1 }, tradeoff: "Clean recovery" },
+        { text: "Isolate first", effect: { power: -2 }, tradeoff: "Safer" }
+      ],
+      followUp: ["Water droplet residue found later."]
+    });
   }
-
   return pool;
 }
 
 function triggerRandomEvent() {
   let pool = getEventPool().filter(e => !state.usedEvents.has(e.id));
   if (pool.length === 0) { state.usedEvents.clear(); pool = getEventPool(); }
-  if (pool.length === 0) return;
+  if (!pool.length) return;
   const ev = pool[Math.floor(Math.random() * pool.length)];
   state.usedEvents.add(ev.id);
   if (ev.humorous) state.humorousEventsTriggered++;
@@ -495,21 +385,20 @@ function showEvent(ev) {
   const crewOpinions = state.crew.map(c => {
     let preferred = 0;
     if (c.bias === "power") preferred = ev.options.findIndex(o => (o.effect.power || 0) > -5);
-    else if (c.bias === "safety") preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 3 || (o.effect.oxygen || 0) > 3);
-    else if (c.bias === "science") preferred = ev.options.findIndex(o => o.isExperiment || (o.effect.morale || 0) > 1);
-    if (preferred < 0) preferred = Math.floor(Math.random() * ev.options.length);
+    else if (c.bias === "safety") preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 3);
+    else preferred = Math.floor(Math.random() * ev.options.length);
+    if (preferred < 0) preferred = 0;
     return { role: c.role, preferred, reason: `${c.role} prioritizes ${c.priority}.` };
   });
 
   let html = `<p>${ev.desc}</p>`;
   if (ev.fact) html += `<div class="fact">${ev.fact}</div>`;
-  html += `<h4 style="margin:10px 0 6px">Crew Opinions</h4>`;
-  crewOpinions.forEach(o => html += `<div class="crew-vote">${o.reason} Leans toward option ${o.preferred + 1}.</div>`);
-  html += `<p style="margin:8px 0 4px"><strong>Your Decision:</strong></p>`;
+  html += `<h4>Crew Opinions</h4>`;
+  crewOpinions.forEach(o => html += `<div class="crew-vote">${o.reason} Prefers option ${o.preferred + 1}.</div>`);
+  html += `<p><strong>Your Decision:</strong></p>`;
   ev.options.forEach((opt, i) => {
     html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:4px 0">${opt.text}<br><small>${opt.tradeoff}</small></button>`;
   });
-
   setEventStatus('decision', 'Decision Required', html);
   window._currentEvent = ev;
   window._crewOpinions = crewOpinions;
@@ -518,64 +407,35 @@ function showEvent(ev) {
 function resolveEvent(idx) {
   const ev = window._currentEvent;
   const choice = ev.options[idx];
-
-  for (const [k, v] of Object.entries(choice.effect)) {
-    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
-  }
+  for (const [k, v] of Object.entries(choice.effect)) state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
   if (choice.isExperiment) state.experimentsDone = Math.min(2, state.experimentsDone + 1);
 
-  const majorityCount = window._crewOpinions.filter(o => o.preferred === idx).length;
-  const followedMajority = majorityCount >= 2;
-  const commanderDecision = followedMajority ? "Accepted majority recommendation" : "Commander override / own judgment";
-
-  state.decisions.push({
-    title: ev.title,
-    myChoice: choice.text,
-    commanderDecision: commanderDecision
-  });
-
+  const majority = window._crewOpinions.filter(o => o.preferred === idx).length >= 2;
+  const cmd = majority ? "Accepted majority" : "Commander override";
+  state.decisions.push({ title: ev.title, myChoice: choice.text, commanderDecision: cmd });
   addLog(`My choice: ${choice.text}`);
-  addLog(`Final commander decision: ${commanderDecision}`);
-
-  if (ev.followUp) {
-    state.pendingFollowUps.push(ev.followUp[0]);
-  }
-
+  addLog(`Final commander decision: ${cmd}`);
+  if (ev.followUp) state.pendingFollowUps.push(ev.followUp[0]);
   updateProgress();
   setEventStatus('nominal', 'All systems nominal', 'Decision logged.');
   state.paused = false;
 }
 
 function endMission(success, reason = "") {
-  state.running = false;
-  clearInterval(state.interval);
+  state.running = false; clearInterval(state.interval);
   document.getElementById('game-screen').classList.add('hidden');
   document.getElementById('end-screen').classList.remove('hidden');
-
   document.getElementById('end-title').textContent = success ? "Returned to Earth — Mission Complete" : "Mission Failed";
-
   const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
-  const decisionList = state.decisions.length
-    ? state.decisions.map(d => `• ${d.title}<br>&nbsp;&nbsp;My choice: ${d.myChoice}<br>&nbsp;&nbsp;Commander: ${d.commanderDecision}`).join("<br>")
-    : "No major decisions recorded";
-
-  const quotes = success ? successQuotes : failureQuotes;
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-
+  const decisionList = state.decisions.map(d => `• ${d.title} → My choice: ${d.myChoice} | Commander: ${d.commanderDecision}`).join("<br>") || "None";
+  const q = (success ? successQuotes : failureQuotes)[Math.floor(Math.random() * 2)];
   document.getElementById('end-summary').innerHTML = `
     <p>${success ? "You successfully returned to Earth." : "Mission aborted: " + reason}</p>
-    <p><strong>Landing Site:</strong> ${state.location.name}</p>
+    <p><strong>NASA Data Used:</strong> ${state.solarActivity.info || "None detected"}</p>
     <p><strong>Final Resources:</strong> ${finalRes}</p>
-    <p><strong>Experiments:</strong> ${state.experimentsDone} / 2</p>
-    <p><strong>Decision Record:</strong><br>${decisionList}</p>
-    <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
-    <div class="fact">
-      <strong>Further Learning:</strong><br>
-      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
-      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
-      <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>
-    </div>
+    <p><strong>Decisions:</strong><br>${decisionList}</p>
+    <div class="quote">“${q.quote}” — ${q.author}</div>
+    <div class="fact"><a href="https://api.nasa.gov/" target="_blank">NASA APIs</a> · <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a></div>
   `;
 }
 </script>
