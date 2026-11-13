@@ -306,6 +306,8 @@ function advanceOneSol() {
   state.resources.shield = Math.max(0, state.resources.shield - 0.2);
   state.resources.morale = Math.max(0, state.resources.morale - 0.15);
 
+  tryOSDRDailyReport();
+  
   if (state.focus) {
     const f = focuses.find(x => x.id === state.focus);
     if (f) for (const [k, v] of Object.entries(f.effect)) 
@@ -403,7 +405,9 @@ function addLog(msg, isDaily = false) {
 function getEventPool() {
   const pool = [];
   const loc = state.location;
-
+  const osdrEvent = getOSDRDecisionEvent();
+  
+  if (osdrEvent) pool.push(osdrEvent);
   if (loc.type === "mars") {
     pool.push({
       id: "mars_dust", title: "Dust on Arrays",
@@ -523,6 +527,47 @@ if (
   return pool;
 }
 
+// OSDR-inspired experiment content
+const osdrExperiments = [
+  { name: "Bone Density Study", desc: "Monitoring crew bone mineral density changes", success: "Bone density data successfully collected and logged." },
+  { name: "Muscle Atrophy Research", desc: "Tracking muscle mass loss in microgravity", success: "Muscle ultrasound measurements completed." },
+  { name: "Immune Response Analysis", desc: "Studying immune system changes during the mission", success: "Blood sample analysis finished and stored." },
+  { name: "Plant Growth Experiment", desc: "Testing crop growth under controlled conditions", success: "Plant growth data recorded successfully." },
+  { name: "Sleep and Circadian Study", desc: "Monitoring crew sleep patterns and circadian rhythm", success: "Sleep cycle data successfully gathered." },
+  { name: "Radiation Biology Sample", desc: "Collecting biological samples for radiation exposure analysis", success: "Radiation biology samples secured." }
+];
+
+// Call this in advanceOneSol() for daily reports (no decision needed)
+function tryOSDRDailyReport() {
+  if (Math.random() < 0.25 && state.stage >= 2) {
+    const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
+    if (Math.random() < 0.6) {
+      addLog(`Daily Report: ${exp.success} <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">OSDR</a>`, true);
+    } else {
+      addLog(`Daily Report: Ongoing ${exp.name} — ${exp.desc}.`, true);
+    }
+  }
+}
+
+// Optional: OSDR-related decision event (add inside getEventPool())
+function getOSDRDecisionEvent() {
+  if (Math.random() < 0.18 && state.stage >= 3 && !state.usedEvents.has("osdr_experiment")) {
+    const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
+    return {
+      id: "osdr_experiment",
+      title: `OSDR Experiment: ${exp.name}`,
+      desc: `${exp.desc}. Resource constraints require a decision.`,
+      fact: `<a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">NASA OSDR Biology Studies</a>`,
+      options: [
+        { text: "Prioritize full data collection", effect: { power: -3, morale: 2 }, tradeoff: "Maximize science return", isExperiment: true },
+        { text: "Collect partial data", effect: { power: -1, morale: 1 }, tradeoff: "Balanced approach", isExperiment: true },
+        { text: "Postpone the experiment", effect: { morale: -2 }, tradeoff: "Preserve resources" }
+      ]
+    };
+  }
+  return null;
+}
+  
 function triggerRandomEvent() {
   let pool = getEventPool().filter(e => !state.usedEvents.has(e.id));
   if (pool.length === 0) { state.usedEvents.clear(); pool = getEventPool(); }
