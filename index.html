@@ -168,26 +168,52 @@ const state = {
 
 // ---------- NASA API ----------
 async function checkDONKI() {
-  if (NASA_API_KEY === "YMm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") {
-    addLog("NASA API key not set — using simulated solar data.");
-    state.solarActivity = { active: Math.random() < 0.3, info: "Simulated CME activity" };
-    return;
-  }
   try {
-    const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
-    const url = `https://api.nasa.gov/DONKI/CME?startDate=${start}&endDate=${end}&api_key=${NASA_API_KEY}`;
+    // 查詢最近 30 天的太陽高能粒子事件
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+
+    startDate.setUTCDate(startDate.getUTCDate() - 30);
+
+    const formatDate = date =>
+      date.toISOString().slice(0, 10);
+
+    const url =
+      `https://api.nasa.gov/DONKI/SEP` +
+      `?startDate=${formatDate(startDate)}` +
+      `&endDate=${formatDate(endDate)}` +
+      `&api_key=${encodeURIComponent(NASA_API_KEY)}`;
+
     const res = await fetch(url);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      state.solarActivity = { active: true, info: `${data.length} CME(s) detected recently` };
-      addLog(`NASA DONKI: ${state.solarActivity.info}. Solar storm risk elevated.`);
-    } else {
-      state.solarActivity = { active: false, info: "No recent CME" };
+
+    if (!res.ok) {
+      throw new Error(`NASA DONKI HTTP error: ${res.status}`);
     }
-  } catch (e) {
-    addLog("DONKI fetch failed — continuing with local data.");
-    state.solarActivity = { active: false, info: "" };
+
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error("Unexpected DONKI response");
+    }
+
+    // 儲存 NASA 真實觀測資料
+    state.donki = data.map(event => ({
+      id: event.sepID || "",
+      date: event.eventTime || "",
+      instruments: event.instruments || [],
+      source: event.link || "",
+      type: "SEP"
+    }));
+
+    console.log(
+      "NASA DONKI loaded:",
+      state.donki.length,
+      "SEP events"
+    );
+
+  } catch (error) {
+    console.error("NASA DONKI fetch failed:", error);
+    state.donki = [];
   }
 }
 
