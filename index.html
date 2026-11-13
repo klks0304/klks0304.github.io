@@ -82,7 +82,9 @@
     <p>This is a comprehensive space mission simulation from launch to return to Earth. You will balance life support, power, radiation shielding, and food while making engineering decisions under uncertainty.</p>
     <div class="fact">
       <strong>Why “1 in 746”?</strong><br>
-      Only about 746 humans have ever reached space. This simulation lets you experience the trade-offs that decide mission success or failure.
+      Only about 746 humans have ever reached space. This simulation lets you experience the trade-offs that decide mission success or failure.<br>
+      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>
     </div>
     <button onclick="startBirth()">Start Random Assignment</button>
   </div>
@@ -183,23 +185,16 @@ const successQuotes = [
 
 const failureQuotes = [
   { quote: "Space is hard. Every mission teaches us something.", author: "NASA Lessons Learned" },
-  { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" },
-  { quote: "Exploration is not a luxury. It is a necessity for the survival of the human spirit.", author: "Adapted from space program reflections" }
+  { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" }
 ];
 
 const dailyReports = [
-  "Daily Report: Life support systems operating within normal parameters.",
-  "Daily Report: Solar arrays generating expected power.",
-  "Daily Report: Sample collection completed successfully. Lunar/Martian material secured.",
-  "Daily Report: Experiment run finished. Data logged for Earth return.",
-  "Daily Report: Crew rest cycle completed. Morale stable.",
-  "Daily Report: Minor thermal fluctuation detected and corrected automatically."
-];
-
-const nasaLinks = [
-  { text: "Spherical flames in microgravity", url: "https://svs.gsfc.nasa.gov/11640" },
-  { text: "Water behavior on ISS", url: "https://www.youtube.com/watch?v=9ZEdApyi9Vw" },
-  { text: "Why NASA studies fire in space", url: "https://science.nasa.gov/biological-physical/resources/explainers-infographics/why-nasa-is-studying-flames-in-space/" }
+  'Daily Report: Life support systems operating within normal parameters. <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>',
+  'Daily Report: Solar arrays generating expected power.',
+  'Daily Report: Sample collection completed. <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
+  'Daily Report: Experiment data logged. <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR Biology Archive</a>',
+  'Daily Report: Food production check. <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production Toolkit</a>',
+  'Daily Report: Radiation levels monitored. <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>'
 ];
 
 const state = {
@@ -283,7 +278,6 @@ function tick() {
 function advanceOneSol() {
   state.sol++;
 
-  // Resource decay
   state.resources.oxygen = Math.max(0, state.resources.oxygen - 1.3);
   state.resources.power  = Math.max(0, state.resources.power  - 1.0);
   state.resources.food   = Math.max(0, state.resources.food   - 1.1);
@@ -300,14 +294,12 @@ function advanceOneSol() {
     }
   }
 
-  // Stage progression
   if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived at destination. Base setup begins."); }
   if (state.stage === 2 && state.sol >= 10) { state.stage = 3; updateStage(); addLog("Base Survival phase."); }
   if (state.stage === 3 && state.sol >= 16) { state.stage = 4; updateStage(); addLog("Science Exploration phase."); }
   if (state.stage === 4 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 5; updateStage(); addLog("Return journey begins."); }
   if (state.stage === 5 && state.sol >= 28) { state.stage = 6; updateStage(); addLog("Approaching Earth."); endMission(true); }
 
-  // Daily text reports
   if (Math.random() < 0.4) {
     const report = dailyReports[Math.floor(Math.random() * dailyReports.length)];
     addLog(report, true);
@@ -316,12 +308,10 @@ function advanceOneSol() {
     addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
   }
 
-  // Event chance
   let chance = 0.15;
   if (state.stage === 1 && state.humorousEventsTriggered < state.maxHumorousTotal) chance = 0.3;
   if (Math.random() < chance) triggerRandomEvent();
 
-  // Failure check
   for (const [k, v] of Object.entries(state.resources)) {
     if (v <= 0) {
       endMission(false, `Critical system “${k}” collapsed.`);
@@ -369,7 +359,6 @@ function getEventPool() {
   const pool = [];
   const loc = state.location;
 
-  // Location events
   if (loc.type === "moon") {
     pool.push({
       id: "moon_temp", title: "Temperature Extreme",
@@ -385,6 +374,7 @@ function getEventPool() {
     pool.push({
       id: "mars_dust", title: "Dust on Arrays",
       desc: "Dust is reducing solar power output.",
+      fact: 'Real Mars surface data: <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
       options: [
         { text: "EVA to clean", effect: { power: 10, oxygen: -4 }, tradeoff: "Restore power, use oxygen" },
         { text: "Reduce load", effect: { power: -2, morale: -3 }, tradeoff: "Conserve, lower output" },
@@ -393,11 +383,11 @@ function getEventPool() {
     });
   }
 
-  // General decision events
   pool.push(
     {
       id: "solar_storm", title: "Solar Storm",
       desc: "Solar particle event approaching. Power and shield are limited.",
+      fact: 'Live space weather: <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">NASA DONKI</a>',
       options: [
         { text: "All to shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "High protection, high power cost" },
         { text: "Partial shelter", effect: { shield: 5, power: -3 }, tradeoff: "Balanced protection" },
@@ -407,15 +397,25 @@ function getEventPool() {
     {
       id: "o2_drop", title: "Oxygen Efficiency Drop",
       desc: "Life support electrolysis efficiency is falling.",
+      fact: 'Astronaut health data: <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">NASA OSDR</a>',
       options: [
         { text: "Repair system", effect: { oxygen: 7, power: -4 }, tradeoff: "Restore O₂, use power" },
         { text: "Reduce activity", effect: { oxygen: 2, morale: -3 }, tradeoff: "Slow consumption" },
         { text: "Monitor", effect: { oxygen: -5 }, tradeoff: "Save resources, risk grows" }
       ]
+    },
+    {
+      id: "radiation", title: "Elevated Radiation",
+      desc: "Radiation levels are higher than expected.",
+      fact: 'ISS radiation measurements: <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>',
+      options: [
+        { text: "Increase shielding", effect: { shield: 8, power: -5 }, tradeoff: "Better protection, power cost" },
+        { text: "Limit EVA", effect: { shield: 3, morale: -2 }, tradeoff: "Reduce exposure" },
+        { text: "Continue as planned", effect: { shield: -6 }, tradeoff: "Accept higher dose" }
+      ]
     }
   );
 
-  // Return journey events
   if (state.stage === 5) {
     pool.push(
       {
@@ -435,18 +435,26 @@ function getEventPool() {
           { text: "Use reserve batteries", effect: { power: 6, shield: -1 }, tradeoff: "Immediate power, reduce reserves" },
           { text: "Accept lower margin", effect: { power: -3 }, tradeoff: "No action, higher risk" }
         ]
+      },
+      {
+        id: "food_short", title: "Food Shortage",
+        desc: "Food reserves are lower than planned for the return.",
+        fact: '<a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production in Space</a>',
+        options: [
+          { text: "Ration strictly", effect: { food: 3, morale: -4 }, tradeoff: "Stretch supplies, lower morale" },
+          { text: "Boost greenhouse", effect: { food: 5, power: -3, water: -2 }, tradeoff: "Grow more, resource cost" },
+          { text: "Maintain normal portions", effect: { food: -4 }, tradeoff: "Morale up, risk shortage" }
+        ]
       }
     );
   }
 
-  // Humorous events (max 2 total, prefer early)
   if (state.humorousEventsTriggered < state.maxHumorousTotal && state.stage <= 2) {
-    const link = nasaLinks[Math.floor(Math.random() * nasaLinks.length)];
     pool.push(
       {
         id: "water_escape", title: "Escaped Water Droplet",
         desc: "A water droplet floated free and is drifting toward equipment.",
-        fact: `In microgravity water forms spheres. <a href="${link.url}" target="_blank">${link.text}</a>`,
+        fact: 'In microgravity water forms spheres. <a href="https://www.youtube.com/watch?v=9ZEdApyi9Vw" target="_blank">Water on ISS</a>',
         humorous: true,
         options: [
           { text: "Catch and drink it", effect: { morale: 3 }, tradeoff: "Morale up, possible mess" },
@@ -561,7 +569,13 @@ function endMission(success, reason = "") {
     <p><strong>Experiments:</strong> ${state.experimentsDone} / 2</p>
     <p><strong>Decision Record:</strong><br>${decisionList}</p>
     <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
-    <div class="fact"><strong>Key Takeaway:</strong> Every choice is a trade-off. Mission success depends on balancing limited resources under uncertainty.</div>
+    <div class="fact">
+      <strong>Further Learning:</strong><br>
+      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
+      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
+      <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>
+    </div>
   `;
 }
 </script>
