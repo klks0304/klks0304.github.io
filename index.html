@@ -192,14 +192,34 @@ async function checkDONKI() {
 }
 
 async function fetchAPOD() {
-  if (NASA_API_KEY === "Mm9PHDmzbMnp69LG6kdqMjkCp6fzgwcJHGDzmFzh") return;
   try {
-    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`);
-    const data = await res.json();
-    if (data.title) state.apod = { title: data.title, url: data.url };
-  } catch (e) {}
-}
+    const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`;
 
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      throw new Error(`NASA APOD HTTP error: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (data.title && data.url) {
+      state.apod = {
+        title: data.title,
+        url: data.url,
+        explanation: data.explanation || "",
+        date: data.date || "",
+        media_type: data.media_type || "image"
+      };
+
+      console.log("NASA APOD loaded:", state.apod);
+    }
+
+  } catch (error) {
+    console.error("NASA APOD fetch failed:", error);
+    state.apod = null;
+  }
+}
 function setEventStatus(mode, title, contentHtml) {
   const area = document.getElementById('event-area');
   const titleEl = document.getElementById('status-title');
