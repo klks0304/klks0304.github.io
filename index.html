@@ -440,6 +440,8 @@ function getEventPool() {
     ]
   });
 
+  
+  
   // Sally Ride / Peggy Whitson inspired events
   // Sally Ride special event — at most once per game
 // Low-probability female astronaut special events (at most one per game)
@@ -517,18 +519,46 @@ if (
   }
 
   if (state.humorousEventsTriggered < 2 && state.stage <= 2) {
-    pool.push({
-      id: "water_escape", title: "Escaped Water Droplet",
-      desc: "A water droplet is floating toward equipment.",
-      humorous: true,
-      options: [
-        { text: "Catch and drink", effect: { morale: 3 }, tradeoff: "Fun but messy" },
-        { text: "Absorb it", effect: { power: -1 }, tradeoff: "Clean recovery" },
-        { text: "Isolate first", effect: { power: -2 }, tradeoff: "Safer" }
-      ],
-      followUp: ["Water droplet residue found later."]
-    });
-  }
+    pool.push(
+      {
+        id: "water_escape",
+        title: "Escaped Water Droplet",
+        desc: "A water droplet is floating toward equipment.",
+        fact: 'In microgravity, water forms spheres. <a href="https://www.youtube.com/watch?v=9ZEdApyi9Vw" target="_blank">Watch: Water on the ISS</a>',
+        humorous: true,
+        options: [
+          { text: "Catch and drink", effect: { morale: 3 }, tradeoff: "Fun but messy" },
+          { text: "Absorb it", effect: { power: -1 }, tradeoff: "Clean recovery" },
+          { text: "Isolate first", effect: { power: -2 }, tradeoff: "Safer" }
+        ],
+        followUp: ["Water droplet residue found later."]
+      },
+      {
+        id: "cookie_crumbs",
+        title: "Cookie Crumb Blizzard",
+        desc: "Cookie crumbs floated everywhere after someone opened a pack.",
+        fact: 'Small particles float indefinitely in space. <a href="https://svs.gsfc.nasa.gov/11640" target="_blank">NASA: Particles in Microgravity</a>',
+        humorous: true,
+        options: [
+          { text: "Vacuum everything", effect: { power: -1, morale: -1 }, tradeoff: "Clean but time-consuming" },
+          { text: "Clean only near gear", effect: { morale: 1 }, tradeoff: "Faster, some crumbs remain" },
+          { text: "Snack and clean", effect: { morale: 4 }, tradeoff: "Higher morale, less efficient" }
+        ],
+        followUp: ["Cookie crumbs later found in a vent."]
+      }
+    );
+}
+  pool.push({
+  id: "radiation_check",
+  title: "Elevated Radiation Alert",
+  desc: "Radiation levels are higher than expected.",
+  fact: 'Real ISS radiation measurements: <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>',
+  options: [
+    { text: "Increase shielding", effect: { shield: 8, power: -5 }, tradeoff: "Better protection, power cost" },
+    { text: "Limit EVA", effect: { shield: 3, morale: -2 }, tradeoff: "Reduce exposure" },
+    { text: "Continue as planned", effect: { shield: -6 }, tradeoff: "Accept higher dose" }
+  ]
+});
   return pool;
 }
 
@@ -641,10 +671,15 @@ function endMission(success, reason = "") {
     <p><strong>Decisions:</strong><br>${decisionList}</p>
     <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
     <div class="fact">
-      Inspired by Sally Ride, Peggy Whitson, and the Hidden Figures who made spaceflight possible.<br>
-      <a href="https://api.nasa.gov/" target="_blank">NASA APIs</a> · 
-      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
-    </div>
+  <strong>Further Learning:</strong><br>
+  <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+  <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
+  <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
+  <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a> · 
+  <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a><br>
+  <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production</a> · 
+  <a href="https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp" target="_blank">CSA STEM Resources</a>
+</div>
   `;
 }
 </script>
