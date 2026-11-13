@@ -341,6 +341,26 @@ function advanceOneSol() {
   }
 }
 
+function getDONKINarrative() {
+  if (!state.donki || state.donki.length === 0) {
+    return null;
+  }
+
+  const event = state.donki[
+    Math.floor(Math.random() * state.donki.length)
+  ];
+
+  return {
+    title: "NASA Space Weather Report",
+    text:
+      `NASA recorded a solar energetic particle event ` +
+      `on ${event.date}. These particles can pose ` +
+      `radiation risks to astronauts in space.`,
+    source: event.source,
+    requiresDecision: false
+  };
+}
+  
 function renderBars() {
   const labels = { oxygen: "O₂ / Life Support", power: "Power", food: "Food", shield: "Radiation Shield", morale: "Morale", water: "Water" };
   document.getElementById('resource-bars').innerHTML = Object.keys(labels).map(k => {
