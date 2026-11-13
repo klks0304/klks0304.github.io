@@ -305,8 +305,6 @@ function advanceOneSol() {
   state.resources.water  = Math.max(0, state.resources.water  - 0.9);
   state.resources.shield = Math.max(0, state.resources.shield - 0.2);
   state.resources.morale = Math.max(0, state.resources.morale - 0.15);
-
-  tryOSDRDailyReport();
   
   if (state.focus) {
     const f = focuses.find(x => x.id === state.focus);
@@ -327,6 +325,9 @@ function advanceOneSol() {
       addLog("Daily Report: Systems nominal. Science data being logged.", true);
     }
   }
+
+  tryOSDRDailyReport();
+  
   if (state.pendingFollowUps.length && Math.random() < 0.3) 
     addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
 
