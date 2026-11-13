@@ -62,34 +62,13 @@
   .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
   .fact { background: #1e2a44; padding: 8px 12px; border-left: 3px solid var(--accent); margin: 10px 0; font-size: 0.9rem; }
   .end-summary { line-height: 1.7; }
-  #event-area.nominal {
-    background: var(--nominal);
-    border-color: #3949ab;
-  }
-  #event-area.decision {
-    background: var(--decision);
-    border-color: var(--warn);
-  }
-  .status-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin: 0 0 10px;
-  }
-  .columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  @media (max-width: 800px) {
-    .columns { grid-template-columns: 1fr; }
-  }
-  .quote {
-    font-style: italic;
-    margin: 16px 0;
-    padding: 12px;
-    background: #1e2a44;
-    border-left: 4px solid var(--accent);
-  }
+  #event-area.nominal { background: var(--nominal); border-color: #3949ab; }
+  #event-area.decision { background: var(--decision); border-color: var(--warn); }
+  .status-title { font-size: 1.1rem; font-weight: 700; margin: 0 0 10px; }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
+  .quote { font-style: italic; margin: 16px 0; padding: 12px; background: #1e2a44; border-left: 4px solid var(--accent); }
+  .daily-report { color: #a5d6a7; font-style: italic; }
 </style>
 </head>
 <body>
@@ -203,8 +182,16 @@ const astronautQuotes = [
   { quote: "That's one small step for man, one giant leap for mankind.", author: "Neil Armstrong" },
   { quote: "Failure is not an option.", author: "Gene Kranz" },
   { quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", author: "Konstantin Tsiolkovsky" },
-  { quote: "To go places and do things that have never been done before – that’s what living is all about.", author: "Michael Collins" },
-  { quote: "I believe every human has a finite number of heartbeats. I don't intend to waste any of mine.", author: "Neil Armstrong" }
+  { quote: "To go places and do things that have never been done before – that’s what living is all about.", author: "Michael Collins" }
+];
+
+const dailyFacts = [
+  "In microgravity, flames burn in spheres instead of the familiar teardrop shape.",
+  "The ISS recycles about 90% of its water, including from urine and humidity.",
+  "Lunar dust is extremely abrasive and can damage seals and equipment.",
+  "Mars dust storms can cover the entire planet and reduce solar power for weeks.",
+  "Water ice at the lunar south pole is a key resource for future sustained presence.",
+  "Solar particle events can deliver high radiation doses if crews are not sheltered."
 ];
 
 const state = {
@@ -217,7 +204,7 @@ const state = {
   usedEvents: new Set(),
   pendingFollowUps: [],
   humorousEventsTriggered: 0,
-  maxHumorousEarly: 2,
+  maxHumorousTotal: 2,
   crew: [
     { role: "Engineer", priority: "equipment and power", bias: "power" },
     { role: "Doctor", priority: "crew safety", bias: "safety" },
@@ -316,18 +303,20 @@ function advanceOneSol() {
   if (state.stage === 3 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 4; updateStage(); addLog("Entered Emergency Response stage."); }
   if (state.stage === 4 && state.sol >= 30) { state.stage = 5; updateStage(); addLog("Entered Mission Evaluation stage."); endMission(true); }
 
-  if (state.pendingFollowUps.length && Math.random() < 0.25) {
+  // Daily report content (facts + follow-ups)
+  if (Math.random() < 0.35) {
+    const fact = dailyFacts[Math.floor(Math.random() * dailyFacts.length)];
+    addLog(`Daily Report: ${fact}`, true);
+  }
+  if (state.pendingFollowUps.length && Math.random() < 0.4) {
     const note = state.pendingFollowUps.shift();
-    addLog(note);
+    addLog(`Daily Report: ${note}`, true);
   }
 
-  // Event trigger logic
-  let eventChance = 0.18;
-  if (state.stage === 1 && state.sol <= 8 && state.humorousEventsTriggered < state.maxHumorousEarly) {
-    eventChance = 0.35; // higher chance early for humorous
-  } else if (state.stage > 1) {
-    eventChance = 0.15; // normal after arrival
-  }
+  // Event chance — humorous only if under cap and preferably early
+  let eventChance = 0.16;
+  const canDoHumorous = state.humorousEventsTriggered < state.maxHumorousTotal && state.sol <= 10;
+  if (canDoHumorous) eventChance = 0.28;
 
   if (Math.random() < eventChance) triggerRandomEvent();
 
@@ -373,10 +362,11 @@ function chooseFocus(id) {
 function togglePause() { state.paused = !state.paused; }
 function setSpeed(s) { state.speed = s; }
 
-function addLog(msg) {
-  state.log.push(`Sol ${state.sol}: ${msg}`);
+function addLog(msg, isDaily = false) {
+  const prefix = isDaily ? `<span class="daily-report">Sol ${state.sol}: ${msg}</span>` : `Sol ${state.sol}: ${msg}`;
+  state.log.push(prefix);
   const el = document.getElementById('log');
-  el.innerHTML = state.log.slice(-12).map(l => `<div>${l}</div>`).join('');
+  el.innerHTML = state.log.slice(-14).map(l => `<div>${l}</div>`).join('');
   el.scrollTop = el.scrollHeight;
 }
 
@@ -384,11 +374,10 @@ function getEventPool() {
   const loc = state.location;
   const pool = [];
 
-  // Location-specific and serious events (always available)
+  // Location & serious events always available
   if (loc.type === "moon") {
     pool.push({
-      id: "moon_temp",
-      title: "Extreme Temperature Swing",
+      id: "moon_temp", title: "Extreme Temperature Swing",
       desc: "Lunar day-night temperature extremes are stressing the thermal control system.",
       fact: "Lunar surface temperatures can swing more than 300°C between day and night.",
       options: [
@@ -400,8 +389,7 @@ function getEventPool() {
   }
   if (loc.name.includes("South Pole")) {
     pool.push({
-      id: "south_ice",
-      title: "Water Ice Exploration Opportunity",
+      id: "south_ice", title: "Water Ice Exploration Opportunity",
       desc: "Sensors indicate possible water ice nearby.",
       fact: "Permanently shadowed regions at the lunar south pole may contain water ice.",
       options: [
@@ -413,8 +401,7 @@ function getEventPool() {
   }
   if (loc.type === "mars") {
     pool.push({
-      id: "mars_dust",
-      title: "Dust on Solar Arrays",
+      id: "mars_dust", title: "Dust on Solar Arrays",
       desc: "Dust accumulation is reducing solar power generation.",
       fact: "Mars rovers Opportunity and Spirit lost power due to dust on their solar panels.",
       options: [
@@ -426,8 +413,7 @@ function getEventPool() {
   }
   if (loc.name.includes("Jezero")) {
     pool.push({
-      id: "jezero_sample",
-      title: "Ancient Water Environment Sampling",
+      id: "jezero_sample", title: "Ancient Water Environment Sampling",
       desc: "A high-value geological sampling opportunity has been identified.",
       fact: "Jezero Crater is believed to have once held a lake.",
       options: [
@@ -440,8 +426,7 @@ function getEventPool() {
 
   pool.push(
     {
-      id: "solar_storm",
-      title: "Solar Storm Alert",
+      id: "solar_storm", title: "Solar Storm Alert",
       desc: `A solar particle event is approaching. Current power: ${Math.round(state.resources.power)}%, shield: ${Math.round(state.resources.shield)}%.`,
       fact: "Apollo crews closely monitored solar activity and used storm shelters when necessary.",
       options: [
@@ -451,8 +436,7 @@ function getEventPool() {
       ]
     },
     {
-      id: "oxygen_anomaly",
-      title: "Oxygen System Efficiency Drop",
+      id: "oxygen_anomaly", title: "Oxygen System Efficiency Drop",
       desc: "Electrolysis efficiency is declining.",
       fact: "The ISS Oxygen Generation System produces oxygen by electrolyzing water.",
       options: [
@@ -463,12 +447,11 @@ function getEventPool() {
     }
   );
 
-  // Humorous events — only early
-  if (state.stage === 1 && state.sol <= 8 && state.humorousEventsTriggered < state.maxHumorousEarly) {
+  // Humorous events only if under total cap
+  if (state.humorousEventsTriggered < state.maxHumorousTotal) {
     pool.push(
       {
-        id: "escaped_water",
-        title: "The Last Sip Escaped",
+        id: "escaped_water", title: "The Last Sip Escaped",
         desc: "“Commander! My water got away!” An astronaut is chasing a floating water droplet with their mouth open. It is slowly drifting toward the control panel…",
         fact: "In microgravity, water forms spheres due to surface tension and does not fall to the floor.",
         humorous: true,
@@ -477,15 +460,11 @@ function getEventPool() {
           { text: "Use an absorbent tool to recover it", effect: { morale: 1, power: -1 }, tradeoff: "Takes a little time, lowers equipment risk" },
           { text: "Isolate the control panel first, then recover the droplet", effect: { power: -2 }, tradeoff: "Takes more time but improves equipment safety" }
         ],
-        followUp: [
-          "A small water droplet from earlier was found stuck on a button.",
-          "Residue from the recovered water droplet needed extra wiping later."
-        ]
+        followUp: ["A small water droplet from earlier was found stuck on a button.", "Residue from the recovered water droplet needed extra wiping later."]
       },
       {
-        id: "colorful_particles",
-        title: "Colorful Experiment Particles Escaped",
-        desc: "A scientist opened a sample container and the latch failed. A small packet of colorful particles floated out like cosmic fireworks. The engineer stared for three seconds: “Those were tomorrow’s experiment materials.”",
+        id: "colorful_particles", title: "Colorful Experiment Particles Escaped",
+        desc: "A scientist opened a sample container and the latch failed. Colorful particles floated out like cosmic fireworks.",
         fact: "In microgravity, fine particles do not settle quickly and can remain suspended in airflow.",
         humorous: true,
         options: [
@@ -493,15 +472,11 @@ function getEventPool() {
           { text: "Immediately seal the area and recover the particles", effect: { power: -1 }, tradeoff: "Delays research but reduces contamination and material loss" },
           { text: "Assess particle type and spread, then clean by procedure", effect: { morale: -1 }, tradeoff: "Takes time but allows proper protection and recovery" }
         ],
-        followUp: [
-          "A few colorful particles were later found on equipment surfaces.",
-          "Minor cross-contamination was logged in another experiment area."
-        ]
+        followUp: ["A few colorful particles were later found on equipment surfaces.", "Minor cross-contamination was logged in another experiment area."]
       },
       {
-        id: "spinning_drill",
-        title: "Who’s Spinning?",
-        desc: "Someone forgot to secure themselves while using a power drill. They started slowly rotating in the cabin with the drill still running, shouting “I can’t stop!”",
+        id: "spinning_drill", title: "Who’s Spinning?",
+        desc: "Someone forgot to secure themselves while using a power drill and started rotating in the cabin.",
         fact: "In microgravity there is no friction to hold you in place. Any reaction force will make you rotate.",
         humorous: true,
         options: [
@@ -509,15 +484,11 @@ function getEventPool() {
           { text: "Let them try to hook a foot and stop themselves", effect: { morale: -1 }, tradeoff: "Saves crew effort but they may bump equipment" },
           { text: "Pause nearby work so no one gets hit", effect: { morale: -2 }, tradeoff: "Safest option but delays other tasks slightly" }
         ],
-        followUp: [
-          "A couple of small tools from the drill incident were found later.",
-          "A storage bag was bumped and needed reorganizing."
-        ]
+        followUp: ["A couple of small tools from the drill incident were found later.", "A storage bag was bumped and needed reorganizing."]
       },
       {
-        id: "cookie_crumbs",
-        title: "Cookie Crumb Blizzard",
-        desc: "Someone opened a pack of cookies in microgravity. Crumbs exploded outward like a snowstorm and stuck to screens and clothes.",
+        id: "cookie_crumbs", title: "Cookie Crumb Blizzard",
+        desc: "Someone opened a pack of cookies in microgravity. Crumbs exploded outward like a snowstorm.",
         fact: "Small particles float indefinitely in microgravity and can be drawn into ventilation or equipment.",
         humorous: true,
         options: [
@@ -525,10 +496,7 @@ function getEventPool() {
           { text: "Only clean crumbs near equipment", effect: { morale: 1 }, tradeoff: "Faster but some crumbs remain in the air" },
           { text: "Treat it as snack time and clean while eating", effect: { morale: 4, food: 1 }, tradeoff: "Boosts morale but lower cleaning efficiency" }
         ],
-        followUp: [
-          "Cookie crumbs were later found in a screen bezel.",
-          "A few crumbs reached a vent and slightly reduced airflow."
-        ]
+        followUp: ["Cookie crumbs were later found in a screen bezel.", "A few crumbs reached a vent and slightly reduced airflow."]
       }
     );
   }
@@ -552,34 +520,20 @@ function triggerRandomEvent() {
 
 function showEvent(ev) {
   state.paused = true;
-
   const crewOpinions = state.crew.map(c => {
     let preferred = 0;
-    if (c.bias === "power") {
-      preferred = ev.options.findIndex(o => (o.effect.power || 0) > -4);
-    } else if (c.bias === "safety") {
-      preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 4 || (o.effect.oxygen || 0) > 3);
-    } else if (c.bias === "science") {
-      preferred = ev.options.findIndex(o => o.isExperiment || (o.effect.morale || 0) > 2);
-    }
+    if (c.bias === "power") preferred = ev.options.findIndex(o => (o.effect.power || 0) > -4);
+    else if (c.bias === "safety") preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 4 || (o.effect.oxygen || 0) > 3);
+    else if (c.bias === "science") preferred = ev.options.findIndex(o => o.isExperiment || (o.effect.morale || 0) > 2);
     if (preferred < 0) preferred = Math.floor(Math.random() * ev.options.length);
     return { ...c, preferred, reason: `${c.role} prioritizes ${c.priority} and leans toward “${ev.options[preferred].text}”.` };
   });
 
-  let html = `
-    <p>${ev.desc}</p>
-    <div class="fact"><strong>Real Space Fact:</strong> ${ev.fact}</div>
-    <h4 style="margin:12px 0 6px">Crew Opinions</h4>
-  `;
-  crewOpinions.forEach(o => {
-    html += `<div class="crew-vote">${o.reason}</div>`;
-  });
-
+  let html = `<p>${ev.desc}</p><div class="fact"><strong>Real Space Fact:</strong> ${ev.fact}</div><h4 style="margin:12px 0 6px">Crew Opinions</h4>`;
+  crewOpinions.forEach(o => { html += `<div class="crew-vote">${o.reason}</div>`; });
   html += `<p style="margin:10px 0 6px"><strong>Your Decision (Engineering Trade-off):</strong></p>`;
   ev.options.forEach((opt, i) => {
-    html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:6px 0">
-      ${opt.text}<br><small style="opacity:0.8">${opt.tradeoff}</small>
-    </button>`;
+    html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:6px 0">${opt.text}<br><small style="opacity:0.8">${opt.tradeoff}</small></button>`;
   });
 
   setEventStatus('decision', 'Decision Required', html);
@@ -590,21 +544,13 @@ function showEvent(ev) {
 function resolveEvent(idx) {
   const ev = window._currentEvent;
   const choice = ev.options[idx];
-
   for (const [k, v] of Object.entries(choice.effect)) {
     state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
   }
-
   if (choice.isExperiment) state.experimentsDone = Math.min(state.maxExperiments, state.experimentsDone + 1);
 
   const majority = window._crewOpinions.filter(o => o.preferred === idx).length;
-  state.decisions.push({
-    title: ev.title,
-    choice: choice.text,
-    tradeoff: choice.tradeoff,
-    followedMajority: majority >= 2
-  });
-
+  state.decisions.push({ title: ev.title, choice: choice.text, tradeoff: choice.tradeoff, followedMajority: majority >= 2 });
   addLog(`Decision: ${choice.text} (${majority >= 2 ? "followed majority" : "own judgment"})`);
 
   if (ev.humorous && ev.followUp) {
@@ -624,12 +570,8 @@ function endMission(success, reason = "") {
   document.getElementById('end-screen').classList.remove('hidden');
 
   document.getElementById('end-title').textContent = success ? "Mission Complete" : "Mission Aborted";
-
   const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
-  const decisionSummary = state.decisions.length
-    ? state.decisions.map(d => `• ${d.title} → ${d.choice}`).join("<br>")
-    : "No major decisions recorded";
-
+  const decisionSummary = state.decisions.length ? state.decisions.map(d => `• ${d.title} → ${d.choice}`).join("<br>") : "No major decisions recorded";
   const q = astronautQuotes[Math.floor(Math.random() * astronautQuotes.length)];
 
   document.getElementById('end-summary').innerHTML = `
@@ -638,13 +580,8 @@ function endMission(success, reason = "") {
     <p><strong>Final Resource Status:</strong><br>${finalRes}</p>
     <p><strong>Experiments Completed:</strong> ${state.experimentsDone} / ${state.maxExperiments}</p>
     <p><strong>Decision Log:</strong><br>${decisionSummary}</p>
-    <div class="quote">
-      “${q.quote}”<br>
-      <span style="opacity:0.8">— ${q.author}</span>
-    </div>
-    <div class="fact">
-      <strong>Key Takeaway:</strong> Space missions are full of engineering trade-offs. There is rarely a perfect answer — only the most reasonable choice given the resources available at that moment.
-    </div>
+    <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
+    <div class="fact"><strong>Key Takeaway:</strong> Space missions are full of engineering trade-offs. There is rarely a perfect answer — only the most reasonable choice given the resources available at that moment.</div>
   `;
 }
 </script>
