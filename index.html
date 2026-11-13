@@ -322,8 +322,6 @@ function advanceOneSol() {
   if (Math.random() < 0.35) {
     if (state.apod && Math.random() < 0.4) {
       addLog(`Daily Report: NASA APOD — ${state.apod.title} <a href="${state.apod.url}" target="_blank">View</a>`, true);
-    } else if (Math.random() < 0.3) {
-      addLog("Daily Report: Remembering Sally Ride — first American woman in space.", true);
     } else {
       addLog("Daily Report: Systems nominal. Science data being logged.", true);
     }
@@ -417,9 +415,12 @@ function getEventPool() {
   });
 
   // Sally Ride / Peggy Whitson inspired events
+  // Sally Ride special event — at most once per game
+if (!state.usedEvents.has("sally_ride_legacy") && Math.random() < 0.15) {
   pool.push({
-    id: "sally_ride_legacy", title: "Sally Ride Legacy Moment",
-    desc: "A crew member recalls Sally Ride’s words while facing a difficult systems choice.",
+    id: "sally_ride_legacy",
+    title: "Sally Ride Moment",
+    desc: "A crew member recalls Sally Ride’s first flight while facing a systems decision.",
     fact: '"I would like to be remembered as someone who was not afraid to do what she wanted to do." — Sally Ride',
     options: [
       { text: "Prioritize the science objective", effect: { morale: 4, power: -3 }, tradeoff: "Honor the mission spirit, use resources", isExperiment: true },
@@ -427,7 +428,7 @@ function getEventPool() {
       { text: "Balance both carefully", effect: { power: -1, morale: 2 }, tradeoff: "Moderate approach" }
     ]
   });
-
+}
   if (state.stage >= 3) {
     pool.push({
       id: "whitson_endurance", title: "Peggy Whitson Endurance Check",
