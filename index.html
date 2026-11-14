@@ -118,10 +118,46 @@ const professions = [
 ];
 
 const locations = [
-  { name: "Sea of Tranquility (Moon)", type: "moon", special: "Extreme temperature swings" },
-  { name: "Lunar South Pole", type: "moon", special: "Possible water ice" },
-  { name: "Gale Crater (Mars)", type: "mars", special: "Dust and terrain challenges" },
-  { name: "Jezero Crater (Mars)", type: "mars", special: "Ancient water evidence" }
+  { 
+    name: "International Space Station", 
+    type: "station", 
+    special: "Microgravity experiments",
+    experimentDays: 6,
+    totalDays: 9,
+    stageDays: { arrival: 2, survival: 3, science: 3, return: 8, end: 9 }
+  },
+  { 
+    name: "Sea of Tranquility (Moon)", 
+    type: "moon", 
+    special: "Radiation and energy challenges",
+    experimentDays: 8,
+    totalDays: 16,
+    stageDays: { arrival: 4, survival: 6, science: 6, return: 14, end: 16 }
+  },
+  { 
+    name: "Lunar South Pole", 
+    type: "moon", 
+    special: "Possible water ice",
+    experimentDays: 8,
+    totalDays: 16,
+    stageDays: { arrival: 4, survival: 6, science: 6, return: 14, end: 16 }
+  },
+  { 
+    name: "Gale Crater (Mars)", 
+    type: "mars", 
+    special: "Long-term survival",
+    experimentDays: 12,
+    totalDays: 27,
+    stageDays: { arrival: 7, survival: 10, science: 10, return: 22, end: 27 }
+  },
+  { 
+    name: "Jezero Crater (Mars)", 
+    type: "mars", 
+    special: "Resource cycling",
+    experimentDays: 12,
+    totalDays: 27,
+    stageDays: { arrival: 7, survival: 10, science: 10, return: 22, end: 27 }
+  }
 ];
 
 const stages = [
@@ -161,6 +197,8 @@ const state = {
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
   radiationExposure: 0,          // ← 新增
   highExposureAlertShown: false, // ← 新增（避免一直跳）
+  expectedTotalDays: 0,
+  stageDays: null,
   log: [],
   decisions: [],
   usedEvents: new Set(),
@@ -269,6 +307,10 @@ function setEventStatus(mode, title, contentHtml) {
 function startBirth() {
   state.profession = professions[Math.floor(Math.random() * professions.length)];
   state.location = locations[Math.floor(Math.random() * locations.length)];
+  // Set mission timeline from location
+  state.maxExperiments = state.location.experimentDays;
+  state.expectedTotalDays = state.location.totalDays;
+  state.stageDays = state.location.stageDays;
   state.isCommander = Math.random() < state.profession.commanderChance;
   document.getElementById('intro-screen').classList.add('hidden');
   document.getElementById('birth-result').classList.remove('hidden');
@@ -276,6 +318,8 @@ function startBirth() {
     <p><strong>Profession:</strong> ${state.profession.name}</p>
     <p><strong>Landing Site:</strong> ${state.location.name}</p>
     <p><strong>Role:</strong> ${state.isCommander ? '<span style="color:#ffa726">Commander</span>' : 'Crew Member'}</p>
+    <p><strong>Estimated Total Mission Time:</strong> ${state.expectedTotalDays} sols</p>
+    <p><strong>Planned Science Days:</strong> ${state.location.experimentDays} sols</p>
   `;
 }
 
@@ -344,13 +388,36 @@ function advanceOneSol() {
       state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
   }
 
+  const sd = state.stageDays;
+  if (!sd) return;
 
-  if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived. Base setup begins."); }
-  if (state.stage === 2 && state.sol >= 10) { state.stage = 3; updateStage(); addLog("Base Survival phase."); }
-  if (state.stage === 3 && state.sol >= 16) { state.stage = 4; updateStage(); addLog("Science Exploration phase."); }
-  if (state.stage === 4 && state.experimentsDone >= 2 && state.sol >= 22) { state.stage = 5; updateStage(); addLog("Return journey begins."); }
-  if (state.stage === 5 && state.sol >= 28) { state.stage = 6; updateStage(); endMission(true); }
-
+  if (state.stage === 1 && state.sol >= sd.arrival) {
+    state.stage = 2;
+    updateStage();
+    addLog(`Sol ${state.sol}: Arrived at ${state.location.name}! Base setup begins.`, true);
+    addLog(`Daily Report: We made it! Time to set up and prepare for ${state.location.experimentDays} days of science.`, true);
+  }
+  if (state.stage === 2 && state.sol >= sd.survival) {
+    state.stage = 3;
+    updateStage();
+    addLog(`Sol ${state.sol}: Base setup complete. Survival phase begins.`, true);
+  }
+  if (state.stage === 3 && state.sol >= sd.science) {
+    state.stage = 4;
+    updateStage();
+    addLog(`Sol ${state.sol}: Science exploration phase starts.`, true);
+  }
+  if (state.stage === 4 && state.sol >= sd.return) {
+    state.stage = 5;
+    updateStage();
+    addLog(`Sol ${state.sol}: Science complete. Return journey begins!`, true);
+  }
+  if (state.stage === 5 && state.sol >= sd.end) {
+    state.stage = 6;
+    updateStage();
+    endMission(true);
+  }
+  
   if (Math.random() < 0.35) {
     if (state.apod && Math.random() < 0.4) {
       addLog(`Daily Report: NASA APOD — ${state.apod.title} <a href="${state.apod.url}" target="_blank">View</a>`, true);
@@ -513,21 +580,89 @@ const astronautNarratives = [
 function getEventPool() {
   const pool = [];
   const loc = state.location;
-  const osdrEvent = getOSDRDecisionEvent();
-  
-  if (osdrEvent) pool.push(osdrEvent);
-  if (loc.type === "mars") {
+  const locType = loc?.type || "moon";
+  const stage = state.stage;
+
+  // OSDR decision event (only during science phases)
+  if (stage >= 2 && stage < 5) {
+    const osdrEvent = getOSDRDecisionEvent();
+    if (osdrEvent) pool.push(osdrEvent);
+  }
+
+  // ===== Mars-specific =====
+  if (locType === "mars" && stage >= 2 && stage < 5) {
     pool.push({
-      id: "mars_dust", title: "Dust on Arrays",
-      desc: "Dust is reducing solar power.",
+      id: "mars_dust",
+      title: "Dust on Solar Arrays",
+      desc: "Dust is covering the solar panels and reducing power.",
       fact: '<a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a>',
       options: [
-        { text: "EVA to clean", effect: { power: 10, oxygen: -4 }, tradeoff: "Restore power, use oxygen" },
-        { text: "Reduce load", effect: { power: -2, morale: -3 }, tradeoff: "Conserve power" },
-        { text: "Wait", effect: { power: -4 }, tradeoff: "No cost, slow recovery" }
+        { text: "Go outside to clean them", effect: { power: 10, oxygen: -4 }, tradeoff: "Restore power, use oxygen" },
+        { text: "Use less power", effect: { power: -2, morale: -3 }, tradeoff: "Save power" },
+        { text: "Wait and see", effect: { power: -4 }, tradeoff: "No immediate cost" }
       ]
     });
   }
+
+  // ===== Moon-specific =====
+  if (locType === "moon" && stage >= 2 && stage < 5) {
+    pool.push({
+      id: "moon_temp",
+      title: "Extreme Temperature",
+      desc: "The Moon gets very hot and very cold. The temperature control system is working hard.",
+      options: [
+        { text: "Use more power for cooling/heating", effect: { power: -6, shield: 2 }, tradeoff: "Stable temperature, uses power" },
+        { text: "Adjust work schedule", effect: { morale: -2, power: -1 }, tradeoff: "Less comfort, save some power" },
+        { text: "Do nothing extra", effect: { power: -3, morale: -1 }, tradeoff: "Risk of problems later" }
+      ]
+    });
+  }
+
+  // ===== Station-specific =====
+  if (locType === "station" && stage >= 2 && stage < 5) {
+    pool.push({
+      id: "station_waste",
+      title: "Waste Water System",
+      desc: "The water recycling system needs attention.",
+      options: [
+        { text: "Fix it now", effect: { power: -3, water: 5 }, tradeoff: "Better water, uses power" },
+        { text: "Use backup system", effect: { water: -2, morale: -1 }, tradeoff: "Temporary solution" },
+        { text: "Wait", effect: { water: -4 }, tradeoff: "May get worse" }
+      ]
+    });
+  }
+
+  // ===== Common solar storm (all locations, more relevant in transit & surface) =====
+  if (stage <= 4) {
+    pool.push({
+      id: "solar_storm",
+      title: "Solar Particle Event",
+      desc: "High-energy particles from the Sun are coming. Radiation risk is higher.",
+      fact: '<a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI Space Weather</a>',
+      options: [
+        { text: "Everyone go to the shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "Best protection, uses a lot of power" },
+        { text: "Partial shelter", effect: { shield: 5, power: -3 }, tradeoff: "Balanced choice" },
+        { text: "Keep working", effect: { shield: -6, morale: -2 }, tradeoff: "Save power, higher risk" }
+      ]
+    });
+  }
+
+  // ===== Return phase events =====
+  if (stage === 5) {
+    pool.push({
+      id: "return_check",
+      title: "Return System Check",
+      desc: "Time to check the systems before heading home.",
+      options: [
+        { text: "Full system check", effect: { power: -4, morale: 2 }, tradeoff: "Safer return" },
+        { text: "Quick check", effect: { power: -1 }, tradeoff: "Faster but less sure" },
+        { text: "Skip extra checks", effect: { morale: -2 }, tradeoff: "Save time and power" }
+      ]
+    });
+  }
+
+  return pool;
+}
 
   const stormDesc = (state.donki && state.donki.length > 0)
     ? `Solar particle risk elevated. NASA DONKI recorded ${state.donki.length} SEP event(s) recently.`
@@ -617,39 +752,59 @@ function getEventPool() {
 
 // OSDR-inspired experiment content
 // OSDR / CSA inspired daily experiments (no decision needed)
-const osdrExperiments = [
-  { 
-    name: "Plant Growth", 
-    success: 'Plant growth experiment completed! <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">See CSA Food Production Toolkit</a>' 
-  },
-  { 
-    name: "Bone Strength", 
-    success: 'Bone strength experiment completed! <a href="https://www.nasa.gov/stem-content/bag-of-bones-activity/" target="_blank">Try the Bag of Bones activity</a>' 
-  },
-  { 
-    name: "Sleep Study", 
-    success: 'Sleep and body clock experiment completed! You did a great job today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
-  },
-  { 
-    name: "Muscle Research", 
-    success: 'Completed a very challenging muscle experiment! You were amazing today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
-  },
-  { 
-    name: "Immune System", 
-    success: 'Completed a very challenging immune system experiment! You did great today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
-  },
-  { 
-    name: "Radiation Biology", 
-    success: 'Completed a very challenging radiation biology experiment! You were excellent today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
-  }
-];
+const experimentsByType = {
+  station: [
+    { 
+      name: "Plant Growth", 
+      success: 'Plant growth experiment completed in microgravity! <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">See CSA Food Production Toolkit</a>' 
+    },
+    { 
+      name: "Sleep Study", 
+      success: 'Sleep and body clock experiment completed! <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
+    },
+    { 
+      name: "Fluid Physics", 
+      success: 'Watched how liquids behave without gravity. Data logged.' 
+    }
+  ],
+  moon: [
+    { 
+      name: "Radiation Shield Test", 
+      success: 'Tested radiation protection on the Moon. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View related studies on OSDR</a>' 
+    },
+    { 
+      name: "Moon Dust Study", 
+      success: 'Collected and studied lunar dust samples.' 
+    },
+    { 
+      name: "Solar Power Check", 
+      success: 'Checked solar panels and energy systems on the Moon.' 
+    }
+  ],
+  mars: [
+    { 
+      name: "Water Recycling", 
+      success: 'Practiced water recycling for long-term stays. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View biology studies on OSDR</a>' 
+    },
+    { 
+      name: "Dust Storm Prep", 
+      success: 'Prepared life support systems for possible dust storms.' 
+    },
+    { 
+      name: "Long-term Food Test", 
+      success: 'Tested growing food over many sols on Mars.' 
+    }
+  ]
+};
 
 
 // Call this in advanceOneSol() for daily reports (no decision needed)
 function tryOSDRDailyReport() {
-  if (Math.random() < 0.28 && state.stage >= 2) {
-    const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
-    addLog(`Daily Report: Conducting ${exp.name} experiment. ${exp.success}`, true);
+  if (state.stage < 2 || state.stage >= 5) return; // only after arrival, before return
+  if (Math.random() < 0.35) {
+    const list = experimentsByType[state.location.type] || experimentsByType.station;
+    const exp = list[Math.floor(Math.random() * list.length)];
+    addLog(`Daily Report: Working on ${exp.name}. ${exp.success}`, true);
   }
 }
 
@@ -813,6 +968,20 @@ function resolveEvent(idx) {
   }
 
   const choice = ev.options[finalIdx];
+
+  // Apply resource effects
+  if (choice.effect) {
+    for (const [k, v] of Object.entries(choice.effect)) {
+      if (state.resources[k] !== undefined) {
+        state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
+      }
+    }
+  }
+
+  // Apply exposure change if present
+  if (choice.exposureChange) {
+    state.radiationExposure = Math.max(0, Math.min(100, state.radiationExposure + choice.exposureChange));
+  }
 
   for (const [k, v] of Object.entries(state.resources)) {
     if (k === "shield") continue;
