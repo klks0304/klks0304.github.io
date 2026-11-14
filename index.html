@@ -24,7 +24,7 @@
   .bar-fill { height: 100%; transition: width 0.3s; }
   .log { max-height: 240px; overflow-y: auto; font-size: 0.9rem; background: #0e1525; padding: 10px; border-radius: 8px; }
   .crew-vote { background: #1a2238; padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 0.88rem; }
-  .hidden { display: none; }
+  .hidden { display: none !important; }
   .stage-badge { display: inline-block; background: #3949ab; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
   .fact { background: #1e2a44; padding: 8px 12px; border-left: 3px solid var(--accent); margin: 10px 0; font-size: 0.9rem; }
   #event-area.nominal { background: var(--nominal); border-color: #3949ab; }
@@ -43,20 +43,21 @@
   <p class="subtitle">From Launch to Return · Engineering Trade-offs with Real NASA Data</p>
 
   <div id="intro-screen" class="card">
-  <h2>What is this?</h2>
-  <p>This is a comprehensive space mission simulation from launch to return to Earth. Balance life support, power, radiation shielding, and food while facing real NASA data and events.</p>
-  <p>Be one in 8 billion — experience the engineering trade-offs and experiments that determine mission success or failure.</p>
-  <div class="fact">
-    <strong>Why “1 in 746”?</strong><br>
-    Only about 746 humans have ever reached space. Being an astronaut is extremely rare — roughly 1 in 8 billion. This simulation lets you experience the challenges and decisions that come with that rare opportunity.<br><br>
-    The number keeps growing as new astronauts, like future you, reach space...
+    <h2>What is this?</h2>
+    <p>This is a comprehensive space mission simulation from launch to return to Earth. Balance life support, power, radiation shielding, and food while facing real NASA data and events.</p>
+    <p>Be one in 8 billion — experience the engineering trade-offs and experiments that determine mission success or failure.</p>
+    <div class="fact">
+      <strong>Why “1 in 746”?</strong><br>
+      Only about 746 humans have ever reached space. Being an astronaut is extremely rare — roughly 1 in 8 billion. This simulation lets you experience the challenges and decisions that come with that rare opportunity.<br><br>
+      The number keeps growing as new astronauts, like future you, reach space...
+    </div>
+    <p>
+      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
+    </p>
+    <button onclick="startBirth()">Start Random Assignment</button>
   </div>
-  <p>
-    <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-    <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
-  </p>
-  <button onclick="startBirth()">Start Random Assignment</button>
-</div>
+
   <div id="birth-result" class="card hidden">
     <h2>Your Mission Identity</h2>
     <div id="birth-info"></div>
