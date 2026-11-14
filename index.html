@@ -652,10 +652,9 @@ function getEventPool() {
     pool.push({
       id: "solar_storm",
       title: "Solar Particle Event",
-      //desc: "High-energy particles from the Sun are coming. Radiation risk is higher.",
       desc: state.donki && state.donki.length > 0
-          ? `The Sun is sending strong particles! NASA saw this on ${state.donki[0].date ? state.donki[0].date.slice(0, 10) : "a recent day"}. Radiation is higher now.`
-          : "The Sun is sending strong particles! Radiation is higher now.",
+          ? `Solar particle alert! Help your crew stay safe!! NASA saw this on ${state.donki[0].date ? state.donki[0].date.slice(0, 10) : "a recent day"}.`
+          : "Solar particle alert! Help your crew stay safe! Radiation is higher now.,
       fact: '<a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI Space Weather</a>',
       options: [
         { text: "Everyone go to the shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "Best protection, uses a lot of power" },
