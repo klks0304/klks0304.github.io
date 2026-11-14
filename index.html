@@ -279,8 +279,8 @@ async function startMission() {
   document.getElementById('player-info').textContent = `${state.profession.name} · ${state.location.name}`;
   updateStage(); renderBars(); renderFocusButtons(); updateProgress();
   addLog("Mission launch. Checking NASA space weather data...");
-  await checkDONKI();
-  await fetchAPOD();
+  checkDONKI();
+  fetchAPOD();
   setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
   state.running = true;
   state.interval = setInterval(tick, 1000);
