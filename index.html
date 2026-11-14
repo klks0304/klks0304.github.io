@@ -257,6 +257,17 @@ const state = {
   humorousEventsTriggered: 0, maxHumorousTotal: 2,
   solarActivity: { active: false, info: "" },
   apod: null,
+
+  // NASA 資料載入狀態
+  donki: [],
+  donkiStatus: "idle",
+  apodStatus: "idle",
+  
+  // 每日報告：一天只寫入一次
+  lastDailyReportDay: -1,
+  
+  // 記錄當天開始時的資源，用來計算實際變化
+  dayStartResources: null,
   crew: [
     { role: "Engineer", priority: "power and equipment", bias: "power" },
     { role: "Doctor", priority: "crew safety", bias: "safety" },
@@ -266,35 +277,35 @@ const state = {
 
 // ---------- NASA API ----------
 async function checkDONKI() {
+  state.donkiStatus = "loading";
+  state.donki = [];
+
   try {
-    // 查詢最近 30 天的太陽高能粒子事件
-    const endDate = new Date();
-    const startDate = new Date(endDate);
+    const end = new Date();
+    const start = new Date(end);
 
-    startDate.setUTCDate(startDate.getUTCDate() - 30);
+    start.setUTCDate(start.getUTCDate() - 30);
 
-    const formatDate = date =>
-      date.toISOString().slice(0, 10);
+    const startDate = start.toISOString().slice(0, 10);
+    const endDate = end.toISOString().slice(0, 10);
 
     const url =
-      `https://api.nasa.gov/DONKI/SEP` +
-      `?startDate=${formatDate(startDate)}` +
-      `&endDate=${formatDate(endDate)}` +
+      `https://api.nasa.gov/DONKI/SEP?startDate=${startDate}` +
+      `&endDate=${endDate}` +
       `&api_key=${encodeURIComponent(NASA_API_KEY)}`;
 
     const res = await fetch(url);
 
     if (!res.ok) {
-      throw new Error(`NASA DONKI HTTP error: ${res.status}`);
+      throw new Error(`DONKI HTTP ${res.status}`);
     }
 
     const data = await res.json();
 
     if (!Array.isArray(data)) {
-      throw new Error("Unexpected DONKI response");
+      throw new Error("Invalid DONKI response");
     }
 
-    // 儲存 NASA 真實觀測資料
     state.donki = data.map(event => ({
       id: event.sepID || "",
       date: event.eventTime || "",
@@ -303,47 +314,61 @@ async function checkDONKI() {
       type: "SEP"
     }));
 
-    console.log(
-      "NASA DONKI loaded:",
-      state.donki.length,
-      "SEP events"
-    );
+    state.donkiStatus = "loaded";
 
   } catch (error) {
-    console.error("NASA DONKI fetch failed:", error);
     state.donki = [];
+    state.donkiStatus = "error";
+
+    console.error(
+      "DONKI unavailable:",
+      error.message
+    );
   }
 }
 
 async function fetchAPOD() {
+  state.apodStatus = "loading";
+  state.apod = null;
+
   try {
-    const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`;
+    const url =
+      "https://api.nasa.gov/planetary/apod" +
+      `?api_key=${encodeURIComponent(NASA_API_KEY)}`;
 
     const res = await fetch(url);
 
     if (!res.ok) {
-      throw new Error(`NASA APOD HTTP error: ${res.status}`);
+      throw new Error(`APOD HTTP ${res.status}`);
     }
 
     const data = await res.json();
 
-    if (data.title && data.url) {
-      state.apod = {
-        title: data.title,
-        url: data.url,
-        explanation: data.explanation || "",
-        date: data.date || "",
-        media_type: data.media_type || "image"
-      };
-
-      console.log("NASA APOD loaded:", state.apod);
+    if (!data.title || !data.url) {
+      throw new Error("Invalid APOD response");
     }
 
+    state.apod = {
+      title: data.title,
+      url: data.url,
+      explanation: data.explanation || "",
+      date: data.date || "",
+      media_type: data.media_type || "image"
+    };
+
+    state.apodStatus = "loaded";
+
   } catch (error) {
-    console.error("NASA APOD fetch failed:", error);
     state.apod = null;
+    state.apodStatus = "error";
+
+    console.error(
+      "APOD unavailable:",
+      error.message
+    );
   }
 }
+  
 function setEventStatus(mode, title, contentHtml) {
   const area = document.getElementById('event-area');
   const titleEl = document.getElementById('status-title');
@@ -463,8 +488,10 @@ function startBirth() {
 
 async function startMission() {
   if (state.running || !state.location) return;
-
+  
   state.missionQueue = [];
+  state.lastDailyReportDay = -1;
+  state.dayStartResources = null;
   state.waitingForReady = false;
   state.processingQueue = false;
   state.paused = false;
@@ -694,14 +721,17 @@ function processMissionQueue() {
     }
 
     if (state.running) {
+      tryOSDRDailyReport();
+    
       state.paused = false;
-
+    
       setEventStatus(
         "nominal",
         "All systems nominal",
         "Ready for the next mission day."
       );
     }
+    
   } finally {
     state.processingQueue = false;
   }
@@ -747,6 +777,8 @@ function advanceOneSol() {
 
   const sd = state.stageDays;
   if (!sd) return;
+
+  state.dayStartResources = { ...state.resources };
 
   state.sol++;
 
@@ -919,7 +951,6 @@ function advanceOneSol() {
     }
   }
 
-  tryAstronautNarrative();
 
   if (
     state.pendingFollowUps.length &&
@@ -1014,13 +1045,62 @@ function togglePause() {
   state.paused = !state.paused;
 }
 function setSpeed(s) { state.speed = s; }
-function addLog(msg, isDaily = false) {
-  const line = isDaily ? `<span class="daily-report">Sol ${state.sol}: ${msg}</span>` : `Sol ${state.sol}: ${msg}`;
-  state.log.push(line);
-  const el = document.getElementById('log');
-  el.innerHTML = state.log.slice(-14).map(l => `<div>${l}</div>`).join('');
-  el.scrollTop = el.scrollHeight;
+
+function escapeReportText(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[char])
+  );
 }
+
+function reportLink(url, label) {
+  const text = escapeReportText(label);
+
+  if (!/^https?:\/\//i.test(String(url || ""))) {
+    return text;
+  }
+
+  return (
+    `<a href="${escapeReportText(url)}" ` +
+    `target="_blank" rel="noopener noreferrer">` +
+    `${text}</a>`
+  );
+}
+
+function getMissionLogHtml() {
+  return state.log
+    .map(line => `<div>${line}</div>`)
+    .join("");
+}
+
+function addLog(msg, isDaily = false, category = "") {
+  const label =
+    category || (isDaily ? "Report" : "Mission");
+
+  const content =
+    `<strong>Sol ${state.sol} · ` +
+    `${escapeReportText(label)}</strong>: ${msg}`;
+
+  const line = isDaily
+    ? `<span class="daily-report">${content}</span>`
+    : content;
+
+  state.log.push(line);
+
+  const el = document.getElementById("log");
+
+  if (el) {
+    el.innerHTML = getMissionLogHtml();
+    el.scrollTop = el.scrollHeight;
+  }
+}  
+
 
 function tryAstronautNarrative() {
   if (Math.random() >= 0.1) return;
@@ -1573,16 +1653,22 @@ function completeExperiment(id, result = "") {
     item => item.id === id
   );
 
-  if (!exp || exp.status !== "pending") return false;
+  if (!exp || exp.status !== "pending") {
+    return false;
+  }
 
   exp.status = "completed";
   exp.completedDay = state.sol;
-  exp.result = result || exp.success;
+  exp.result = result || "Observations recorded.";
 
-  syncExperimentCounts();
   updateProgress();
 
-  addLog(`Research complete: ${exp.name}. ${exp.result}`, true);
+  addLog(
+    `${escapeReportText(exp.name)} — ` +
+    escapeReportText(exp.result),
+    true,
+    "Science"
+  );
 
   return true;
 }
@@ -1590,25 +1676,69 @@ function completeExperiment(id, result = "") {
 
 // Call this in advanceOneSol() for daily reports (no decision needed)
 function tryOSDRDailyReport() {
-  if (!state.running || state.paused) return;
-  if (state.stage < 2 || state.stage >= 5) return;
-  if (Math.random() >= 0.35) return;
+  if (
+    !state.running ||
+    state.sol <= 0 ||
+    state.lastDailyReportDay === state.sol
+  ) return;
 
-  const pending = state.missionExperiments.filter(
+  state.lastDailyReportDay = state.sol;
+
+  const completed = state.missionExperiments.filter(
     exp =>
-      exp.phase === "destination" &&
-      exp.status === "pending"
-  );
+      exp.status === "completed" &&
+      exp.completedDay === state.sol
+  ).length;
 
-  if (!pending.length) return;
+  const cancelled = state.missionExperiments.filter(
+    exp =>
+      exp.status === "cancelled" &&
+      exp.cancelledDay === state.sol
+  ).length;
 
-  const exp = pending[
-    Math.floor(Math.random() * pending.length)
-  ];
+  const decisions = state.decisions.filter(
+    item => item.day === state.sol
+  ).length;
+
+  const labels = {
+    oxygen: "O₂",
+    power: "Power",
+    food: "Food",
+    water: "Water",
+    shield: "Protection",
+    morale: "Morale"
+  };
+
+  const changes = Object.entries(labels)
+    .map(([key, label]) => {
+      const current = state.resources[key];
+      const start = state.dayStartResources?.[key];
+
+      if (!Number.isFinite(current)) {
+        return `${label}: unavailable`;
+      }
+
+      const delta = Number.isFinite(start)
+        ? Number((current - start).toFixed(1))
+        : null;
+
+      return (
+        `${label} ${Math.round(current)}` +
+        (
+          delta === null
+            ? ""
+            : ` (${delta > 0 ? "+" : ""}${delta})`
+        )
+      );
+    })
+    .join(" · ");
 
   addLog(
-    `Research planned: ${exp.name}. Not completed yet.`,
-    true
+    `Research completed: ${completed}; ` +
+    `cancelled: ${cancelled}; ` +
+    `crew decisions: ${decisions}.<br>${changes}`,
+    true,
+    "Daily Report"
   );
 }
 
@@ -2100,6 +2230,7 @@ function resolveEvent(idx, token) {
   }
 
   state.decisions.push({
+    day: state.sol,
     title: ev.title,
     myChoice: ev.options[idx].text,
     finalChoice: choice.text,
@@ -2108,13 +2239,27 @@ function resolveEvent(idx, token) {
   });
 
   addLog(
+    `${escapeReportText(ev.title)} — ` +
     `${state.isCommander ? "My decision" : "My vote"}: ` +
-    ev.options[idx].text
+    escapeReportText(ev.options[idx].text),
+    false,
+    "Decision"
   );
-
+  
   addLog(
-    `Final decision: ${choice.text} (${decisionType})`
+    `Final choice: ${escapeReportText(choice.text)} ` +
+    `(${escapeReportText(decisionType)})`,
+    false,
+    "Decision"
   );
+  
+  if (outcome) {
+    addLog(
+      `Outcome: ${escapeReportText(outcome)}`,
+      false,
+      "Decision"
+    );
+  }
 
   updateProgress();
   renderBars();
@@ -2128,8 +2273,22 @@ function resolveEvent(idx, token) {
   );
 }
 
-function endMission(success, reason = "") {
+function endMission(success, reason = "") function endMission(success, reason = "") {
   if (!state.running) return;
+
+  syncExperimentCounts();
+  tryOSDRDailyReport();
+
+  addLog(
+    success
+      ? "Mission closed: the crew returned to Earth."
+      : "Mission ended early: " +
+        escapeReportText(
+          reason || "Critical system failure."
+        ),
+    false,
+    "Mission"
+  );
 
   state.running = false;
   state.paused = true;
@@ -2143,64 +2302,348 @@ function endMission(success, reason = "") {
 
   clearInterval(state.interval);
 
-  document.getElementById('game-screen').classList.add('hidden');
-  document.getElementById('end-screen').classList.remove('hidden');
+  const completed = state.missionExperiments.filter(
+    exp => exp.status === "completed"
+  );
 
-  // 科學成果判斷（完成 60% 以上實驗算科學成功）
-  const scienceGoal = state.maxExperiments || 2;
-  const scienceSuccess = state.experimentsDone >= Math.ceil(scienceGoal * 0.6);
-  const safeReturn = success;
+  const cancelled = state.missionExperiments.filter(
+    exp => exp.status === "cancelled"
+  );
 
-  let title = "";
-  let resultText = "";
+  const unfinished = state.missionExperiments.filter(
+    exp => exp.status === "pending"
+  );
 
-  if (safeReturn && scienceSuccess) {
-    title = "Mission Complete — Safe Return & Science Success";
-    resultText = `You safely returned to Earth and achieved the science goals (${state.experimentsDone}/${scienceGoal} experiments).`;
-  } else if (safeReturn && !scienceSuccess) {
-    title = "Safe Return — Science Goals Partially Met";
-    resultText = `You safely returned to Earth, but only completed ${state.experimentsDone}/${scienceGoal} experiments.`;
-  } else {
-    title = "Mission Failed";
-    resultText = "Mission aborted: " + (reason || "Critical system failure.");
+  const total = state.missionExperiments.length;
+  const goal = Math.ceil(total * 0.6);
+
+  const percent = total
+    ? (completed.length / total * 100).toFixed(1)
+    : "0.0";
+
+  const scienceSuccess =
+    total > 0 && completed.length >= goal;
+
+  const phaseLabels = {
+    outbound: "On the way",
+    destination: "At the destination",
+    return: "On the way home"
+  };
+
+  // 依研究的真實狀態產生清單。
+  function researchList(items, kind) {
+    if (!items.length) return "<p>None.</p>";
+
+    return (
+      "<ul>" +
+      items.map(exp => {
+        let detail;
+
+        if (kind === "completed") {
+          detail =
+            `Sol ${exp.completedDay} — ` +
+            (exp.result || "Observations recorded.");
+
+        } else if (kind === "cancelled") {
+          detail =
+            `Sol ${exp.cancelledDay} — ` +
+            (exp.cancelReason || "Activity cancelled.");
+
+        } else {
+          detail = success
+            ? "No result recorded before mission end."
+            : "Mission ended early; this activity was not completed.";
+        }
+
+        const phase =
+          phaseLabels[exp.phase] || exp.phase;
+
+        return (
+          `<li>` +
+          `<strong>${escapeReportText(exp.name)}</strong>` +
+          ` <small>(${escapeReportText(phase)})</small>` +
+          `<br>${escapeReportText(detail)}` +
+          `</li>`
+        );
+      }).join("") +
+      "</ul>"
+    );
   }
 
-  document.getElementById('end-title').textContent = title;
+  let title;
+  let message;
+
+  if (!success) {
+    title = "Mission Failed — Ended Early";
+
+    message =
+      "Your mission ended early. " +
+      "The research you completed is still recorded.";
+
+  } else if (scienceSuccess) {
+    title = "Welcome Home — Science Goal Achieved!";
+
+    message =
+      "Your crew returned safely and reached the research goal.";
+
+  } else if (!completed.length) {
+    title = "Welcome Home — No Research Completed";
+
+    message =
+      "Your crew returned safely, " +
+      "but no research activities were completed.";
+
+  } else {
+    title = "Welcome Home — Keep Exploring!";
+
+    message =
+      "Your crew returned safely. " +
+      "Some research was completed, but the goal was not reached.";
+  }
 
   const finalRes = Object.entries(state.resources)
-    .map(([k, v]) => `${k}: ${Math.round(v)}`)
+    .map(([key, value]) => {
+      const number = Number.isFinite(value)
+        ? Math.round(value)
+        : "unavailable";
+
+      return `${escapeReportText(key)}: ${number}`;
+    })
     .join(" · ");
 
-  const decisionList = state.decisions.map(d =>
-    `• ${d.title} → My choice/vote: ${d.myChoice} | ` +
-    `Final: ${d.finalChoice || d.myChoice} | ` +
-    `${d.commanderDecision}`
-  ).join("<br>") || "None";
+  const decisionList = state.decisions.length
+    ? (
+        "<ul>" +
+        state.decisions.map(item => {
+          return (
+            `<li>` +
+            `<strong>` +
+            `Sol ${escapeReportText(item.day ?? "—")} — ` +
+            `${escapeReportText(item.title)}` +
+            `</strong>` +
 
-  const q = (success ? successQuotes : failureQuotes)[
-    Math.floor(Math.random() * (success ? successQuotes.length : failureQuotes.length))
+            `<br>Your choice/vote: ` +
+            escapeReportText(item.myChoice) +
+
+            `<br>Final choice: ` +
+            escapeReportText(
+              item.finalChoice || item.myChoice
+            ) +
+
+            `<br>` +
+            escapeReportText(item.commanderDecision) +
+
+            (
+              item.outcome
+                ? `<br>Result: ${escapeReportText(item.outcome)}`
+                : ""
+            ) +
+
+            `</li>`
+          );
+        }).join("") +
+        "</ul>"
+      )
+    : "<p>No decisions recorded.</p>";
+
+  // 這裡顯示的是任務結束當下的載入狀態。
+  let donkiText;
+
+  if (state.donkiStatus === "loaded") {
+    donkiText = state.donki.length
+      ? (
+          `${state.donki.length} SEP record(s) ` +
+          "retrieved for the 30-day query."
+        )
+      : (
+          "The 30-day query succeeded; " +
+          "no SEP records were returned. " +
+          "This is not a safety forecast."
+        );
+
+  } else if (state.donkiStatus === "error") {
+    donkiText =
+      "Data unavailable. The mission used simulated scenarios.";
+
+  } else if (state.donkiStatus === "loading") {
+    donkiText =
+      "Still loading when the mission ended.";
+
+  } else {
+    donkiText = "Not requested.";
+  }
+
+  let apodText;
+
+  if (state.apodStatus === "loaded" && state.apod) {
+    apodText = reportLink(
+      state.apod.url,
+      `${state.apod.title} (${state.apod.date})`
+    );
+
+  } else if (state.apodStatus === "error") {
+    apodText = "Picture data unavailable.";
+
+  } else if (state.apodStatus === "loading") {
+    apodText =
+      "Still loading when the mission ended.";
+
+  } else {
+    apodText = "Not requested.";
+  }
+
+  // 相同來源只列一次。
+  const sources = [
+    ...new Map(
+      state.missionExperiments
+        .filter(exp => exp.source?.url)
+        .map(exp => [
+          exp.source.url,
+          exp.source
+        ])
+    ).values()
   ];
 
-  document.getElementById('end-summary').innerHTML = `
-    <p>${resultText}</p>
-    <p><strong>Total Mission Time:</strong> ${state.sol} sols</p>
-    <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
-    <p><strong>NASA Data Used:</strong> ${state.solarActivity.info || "None detected"}</p>
-    <p><strong>Final Resources:</strong> ${finalRes}</p>
-    <p><strong>Experiments:</strong> ${state.experimentsDone} / ${scienceGoal}</p>
-    <p><strong>Decisions:</strong><br>${decisionList}</p>
-    <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
-    <div class="fact">
-      <strong>Further Learning:</strong><br>
-      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
-      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
-      <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a> · 
-      <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a><br>
-      <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production</a> · 
-      <a href="https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp" target="_blank">CSA STEM Resources</a>
+  const sourceList =
+    "<ul>" +
+    sources.map(source =>
+      `<li>${reportLink(source.url, source.label)}</li>`
+    ).join("") +
+    "</ul>";
+
+  const quotes = success
+    ? successQuotes
+    : failureQuotes;
+
+  const quote = quotes[
+    Math.floor(Math.random() * quotes.length)
+  ];
+
+  document.getElementById("end-title").textContent =
+    title;
+
+  document.getElementById("end-summary").innerHTML = `
+    <p>${escapeReportText(message)}</p>
+
+    ${
+      !success
+        ? `<p>Reason: ${
+            escapeReportText(
+              reason || "Critical system failure."
+            )
+          }</p>`
+        : ""
+    }
+
+    <p>
+      <strong>Destination:</strong>
+      ${escapeReportText(state.location?.name || "Unknown")}
+    </p>
+
+    <p>
+      <strong>Planned / Actual Time:</strong>
+      ${state.expectedTotalDays} / ${state.sol} sols
+    </p>
+
+    <p>
+      <strong>Crew Return:</strong>
+      ${
+        success
+          ? "Safely returned"
+          : "Safe return not confirmed"
+      }
+    </p>
+
+    <p>
+      <strong>Research Completed:</strong>
+      ${completed.length} / ${total} (${percent}%)
+    </p>
+
+    <p>
+      <strong>Science Goal:</strong>
+      At least ${goal} completed —
+      ${scienceSuccess ? "Achieved" : "Not reached"}
+    </p>
+
+    <p>
+      <strong>Cancelled:</strong> ${cancelled.length}
+      ·
+      <strong>Not completed:</strong> ${unfinished.length}
+    </p>
+
+    <details>
+      <summary>
+        Completed Research (${completed.length})
+      </summary>
+      ${researchList(completed, "completed")}
+    </details>
+
+    <details>
+      <summary>
+        Cancelled Research (${cancelled.length})
+      </summary>
+      ${researchList(cancelled, "cancelled")}
+    </details>
+
+    <details>
+      <summary>
+        Research Not Completed (${unfinished.length})
+      </summary>
+      ${researchList(unfinished, "unfinished")}
+    </details>
+
+    <details>
+      <summary>Crew Decisions</summary>
+      ${decisionList}
+    </details>
+
+    <details>
+      <summary>Final Resources</summary>
+      <p>${finalRes}</p>
+    </details>
+
+    <details>
+      <summary>View Full Mission Log</summary>
+      <div class="log">
+        ${getMissionLogHtml()}
+      </div>
+    </details>
+
+    <details>
+      <summary>NASA Data and Research Sources</summary>
+
+      <p>Connection status when the mission ended:</p>
+
+      <p>
+        <strong>DONKI:</strong>
+        ${escapeReportText(donkiText)}
+      </p>
+
+      <p>
+        <strong>APOD:</strong>
+        ${apodText}
+      </p>
+
+      <p>
+        Research activities were adapted from the sources below.
+        OSDR and RadLab measurement data were not downloaded
+        by this game.
+      </p>
+
+      ${sourceList}
+    </details>
+
+    <div class="quote">
+      “${escapeReportText(quote.quote)}”<br>
+      — ${escapeReportText(quote.author)}
     </div>
   `;
+
+  document.getElementById("game-screen")
+    .classList.add("hidden");
+
+  document.getElementById("end-screen")
+    .classList.remove("hidden");
 }
 </script>
 </body>
