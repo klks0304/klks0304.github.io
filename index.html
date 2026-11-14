@@ -1013,24 +1013,57 @@ function renderBars() {
 
 function renderFocusButtons() {
   document.getElementById('focus-buttons').innerHTML = focuses.map(f => {
-    // 把 effect 轉成 "+O₂ 3, +Water 2, -Power 2" 這種文字
     const effectText = Object.entries(f.effect)
       .map(([k, v]) => {
-        const sign = v > 0 ? '+' : '';
-        const label = k === 'oxygen' ? 'O₂' : 
-                      k === 'power' ? 'Power' : 
-                      k === 'food' ? 'Food' : 
-                      k === 'water' ? 'Water' : 
-                      k === 'shield' ? 'Shield' : 
+        const label = k === 'oxygen' ? 'Oxygen' :
+                      k === 'power' ? 'Power' :
+                      k === 'food' ? 'Food' :
+                      k === 'water' ? 'Water' :
+                      k === 'shield' ? 'Shield' :
                       k === 'morale' ? 'Morale' : k;
-        return `${sign}${label} ${v}`;
+
+        return `${label} ${v > 0 ? '+' : ''}${v}`;
       })
       .join(', ');
 
-    return `<button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')" title="${effectText}">
-      ${f.name}<br><small>${effectText}</small>
-    </button>`;
+    return `
+      <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px;">
+        <button
+          class="${state.focus === f.id ? '' : 'secondary'}"
+          onclick="chooseFocus('${f.id}')"
+          style="flex:1;text-align:left;">
+          ${f.name}<br>
+          <small>${effectText}</small>
+        </button>
+
+        <button
+          class="secondary"
+          onclick="toggleFocusHelp('${f.id}')"
+          title="Learn more"
+          style="width:42px;flex-shrink:0;">
+          ?
+        </button>
+      </div>
+
+      <div id="focus-help-${f.id}"
+           style="display:none;padding:10px;margin-bottom:10px;background:rgba(128,128,128,0.12);border-radius:8px;">
+        <strong>${f.name}</strong>
+        <p>${f.description || ''}</p>
+        <small><strong>When to use:</strong> ${f.whenToUse || ''}</small>
+      </div>
+    `;
   }).join('');
+}
+
+
+function toggleFocusHelp(id) {
+  const help = document.getElementById(`focus-help-${id}`);
+
+  if (help.style.display === 'none') {
+    help.style.display = 'block';
+  } else {
+    help.style.display = 'none';
+  }
 }
   
 function chooseFocus(id) { state.focus = id; addLog(`Focus: ${focuses.find(x=>x.id===id).name}`); renderFocusButtons(); }
