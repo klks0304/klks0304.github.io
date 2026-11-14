@@ -566,24 +566,39 @@ if (
 }
 
 // OSDR-inspired experiment content
+// OSDR / CSA inspired daily experiments (no decision needed)
 const osdrExperiments = [
-  { name: "Bone Density Study", desc: "Monitoring crew bone mineral density changes", success: "Bone density data successfully collected and logged." },
-  { name: "Muscle Atrophy Research", desc: "Tracking muscle mass loss in microgravity", success: "Muscle ultrasound measurements completed." },
-  { name: "Immune Response Analysis", desc: "Studying immune system changes during the mission", success: "Blood sample analysis finished and stored." },
-  { name: "Plant Growth Experiment", desc: "Testing crop growth under controlled conditions", success: "Plant growth data recorded successfully." },
-  { name: "Sleep and Circadian Study", desc: "Monitoring crew sleep patterns and circadian rhythm", success: "Sleep cycle data successfully gathered." },
-  { name: "Radiation Biology Sample", desc: "Collecting biological samples for radiation exposure analysis", success: "Radiation biology samples secured." }
+  { 
+    name: "Plant Growth", 
+    success: 'Plant growth experiment completed! <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">See CSA Food Production Toolkit</a>' 
+  },
+  { 
+    name: "Bone Strength", 
+    success: 'Bone strength experiment completed! <a href="https://www.nasa.gov/stem-content/bag-of-bones-activity/" target="_blank">Try the Bag of Bones activity</a>' 
+  },
+  { 
+    name: "Sleep Study", 
+    success: 'Sleep and body clock experiment completed! You did a great job today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
+  },
+  { 
+    name: "Muscle Research", 
+    success: 'Completed a very challenging muscle experiment! You were amazing today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
+  },
+  { 
+    name: "Immune System", 
+    success: 'Completed a very challenging immune system experiment! You did great today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
+  },
+  { 
+    name: "Radiation Biology", 
+    success: 'Completed a very challenging radiation biology experiment! You were excellent today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
+  }
 ];
 
 // Call this in advanceOneSol() for daily reports (no decision needed)
 function tryOSDRDailyReport() {
-  if (Math.random() < 0.25 && state.stage >= 2) {
+  if (Math.random() < 0.28 && state.stage >= 2) {
     const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
-    if (Math.random() < 0.6) {
-      addLog(`Daily Report: ${exp.success} <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">OSDR</a>`, true);
-    } else {
-      addLog(`Daily Report: Ongoing ${exp.name} — ${exp.desc}.`, true);
-    }
+    addLog(`Daily Report: Conducting ${exp.name} experiment. ${exp.success}`, true);
   }
 }
 
