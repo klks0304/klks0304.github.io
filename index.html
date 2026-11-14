@@ -201,11 +201,46 @@ const stages = [
 ];
 
 const focuses = [
-  { id: 'life', name: 'Life Support', effect: { oxygen: 3, water: 2, power: -2 } },
-  { id: 'power', name: 'Power', effect: { power: 5, oxygen: -1 } },
-  { id: 'food', name: 'Food Production', effect: { food: 4, water: -2, power: -1 } },
-  { id: 'shield', name: 'Radiation Protection', effect: { shield: 4, power: -2 } },
-  { id: 'explore', name: 'Science', effect: { power: -3, morale: 3 } }
+  {
+    id: 'life',
+    name: 'Life Support',
+    shortDesc: 'Maintain breathable air and clean water.',
+    description: 'Maintain the systems that provide breathable air and clean water for the crew. These systems are essential for keeping everyone alive during the mission.',
+    whenToUse: 'Use this when oxygen or water levels are getting low.',
+    effect: { oxygen: 3, water: 2, power: -2 }
+  },
+  {
+    id: 'power',
+    name: 'Power',
+    shortDesc: 'Restore the crew’s electrical reserves.',
+    description: 'Focus on the mission’s electrical power supply. Electricity is needed to operate equipment, life support systems, and scientific instruments.',
+    whenToUse: 'Use this when power levels are running low.',
+    effect: { power: 5, oxygen: -1 }
+  },
+  {
+    id: 'food',
+    name: 'Food Production',
+    shortDesc: 'Maintain the crew’s food supply.',
+    description: 'Grow and manage food supplies for the crew. Food production requires water and electricity, so resources must be carefully balanced.',
+    whenToUse: 'Use this when food supplies are decreasing.',
+    effect: { food: 4, water: -2, power: -1 }
+  },
+  {
+    id: 'shield',
+    name: 'Radiation Protection',
+    shortDesc: 'Strengthen protection against space radiation.',
+    description: 'Improve radiation shielding to protect the crew from harmful space radiation. This is especially important during solar storms and surface exploration.',
+    whenToUse: 'Use this when radiation protection is becoming a concern.',
+    effect: { shield: 4, power: -2 }
+  },
+  {
+    id: 'explore',
+    name: 'Science',
+    shortDesc: 'Support research and crew morale.',
+    description: 'Dedicate time and resources to scientific activities. Research work requires electricity, while meaningful progress can help maintain crew morale.',
+    whenToUse: 'Use this when the crew needs to focus on research activities or morale.',
+    effect: { power: -3, morale: 3 }
+  }
 ];
 
 const successQuotes = [
