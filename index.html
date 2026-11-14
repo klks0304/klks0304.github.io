@@ -137,7 +137,7 @@ const focuses = [
   { id: 'life', name: 'Life Support', effect: { oxygen: 3, water: 2, power: -2 } },
   { id: 'power', name: 'Power', effect: { power: 5, oxygen: -1 } },
   { id: 'food', name: 'Food Production', effect: { food: 4, water: -2, power: -1 } },
-  { id: 'shield', name: 'Radiation Shield', effect: { shield: 4, power: -2 } },
+  { id: 'shield', name: 'Radiation Protection', effect: { shield: 4, power: -2 } },
   { id: 'explore', name: 'Science', effect: { power: -3, morale: 3 } }
 ];
 
@@ -159,7 +159,11 @@ const state = {
   stage: 1, focus: null, experimentsDone: 0, maxExperiments: 2,
   profession: null, location: null, isCommander: false,
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
-  log: [], decisions: [], usedEvents: new Set(), pendingFollowUps: [],
+  log: [],
+  decisions: [],
+  usedEvents: new Set(),
+  usedNarratives: new Set(),
+  pendingFollowUps: [],
   humorousEventsTriggered: 0, maxHumorousTotal: 2,
   solarActivity: { active: false, info: "" },
   apod: null,
@@ -301,9 +305,11 @@ function tick() {
     if (state.paused || !state.running) break;
 
     advanceOneSol();
+
+    if (state.paused || !state.running) break;
   }
 
-  document.getElementById('sol-display').textContent =
+  document.getElementById("sol-display").textContent =
     `Sol ${state.sol}`;
 
   renderBars();
@@ -324,6 +330,16 @@ function advanceOneSol() {
       state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
   }
 
+  // Simplified daily radiation exposure model
+  const protection = state.resources.shield / 100;
+  
+  const dailyExposure = 0.6 * (1 - protection);
+  
+  state.radiationExposure = Math.min(
+    100,
+    state.radiationExposure + dailyExposure
+  );
+
   if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived. Base setup begins."); }
   if (state.stage === 2 && state.sol >= 10) { state.stage = 3; updateStage(); addLog("Base Survival phase."); }
   if (state.stage === 3 && state.sol >= 16) { state.stage = 4; updateStage(); addLog("Science Exploration phase."); }
@@ -339,6 +355,7 @@ function advanceOneSol() {
   }
 
   tryOSDRDailyReport();
+  tryAstronautNarrative();
   
   if (state.pendingFollowUps.length && Math.random() < 0.3) 
     addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
@@ -408,7 +425,11 @@ function renderFocusButtons() {
   ).join('');
 }
 function chooseFocus(id) { state.focus = id; addLog(`Focus: ${focuses.find(x=>x.id===id).name}`); renderFocusButtons(); }
-function togglePause() { state.paused = !state.paused; }
+function togglePause() {
+  if (window._currentEvent) return;
+
+  state.paused = !state.paused;
+}
 function setSpeed(s) { state.speed = s; }
 function addLog(msg, isDaily = false) {
   const line = isDaily ? `<span class="daily-report">Sol ${state.sol}: ${msg}</span>` : `Sol ${state.sol}: ${msg}`;
@@ -418,6 +439,71 @@ function addLog(msg, isDaily = false) {
   el.scrollTop = el.scrollHeight;
 }
 
+function tryAstronautNarrative() {
+  if (Math.random() >= 0.1) return;
+
+  const available = astronautNarratives.filter(
+    event => !state.usedNarratives.has(event.id)
+  );
+
+  if (available.length === 0) return;
+
+  const event = available[
+    Math.floor(Math.random() * available.length)
+  ];
+
+  state.usedNarratives.add(event.id);
+
+  addLog(
+    `<strong>${event.title}</strong>: ${event.text} ` +
+    `<a href="${event.source}" target="_blank">NASA Source</a>`,
+    true
+  );
+}
+
+const astronautNarratives = [
+  {
+    id: "sally_ride",
+    title: "Sally Ride — Breaking Barriers",
+    text:
+      "On June 18, 1983, Sally Ride became the first " +
+      "American woman in space aboard Challenger. " +
+      "She helped operate the shuttle's robotic arm.",
+    source: "https://www.nasa.gov/people/sally-ride/",
+    type: "historical"
+  },
+  {
+    id: "peggy_whitson",
+    title: "Peggy Whitson — Space Station Commander",
+    text:
+      "Peggy Whitson became the first woman to command " +
+      "the International Space Station in 2007. " +
+      "She also conducted scientific research in orbit.",
+    source: "https://www.nasa.gov/",
+    type: "historical"
+  },
+  {
+    id: "mae_jemison",
+    title: "Mae Jemison — Science and Exploration",
+    text:
+      "In 1992, Mae Jemison became the first African " +
+      "American woman in space. She was also a physician " +
+      "and scientist.",
+    source: "https://www.nasa.gov/",
+    type: "historical"
+  },
+  {
+    id: "christina_koch",
+    title: "Christina Koch — A Long Journey",
+    text:
+      "Christina Koch spent 328 consecutive days in space, " +
+      "setting a record for the longest single spaceflight " +
+      "by a woman.",
+    source: "https://www.nasa.gov/",
+    type: "historical"
+  }
+];
+  
 function getEventPool() {
   const pool = [];
   const loc = state.location;
@@ -451,70 +537,7 @@ function getEventPool() {
     ]
   });
 
-  
-  
-  // Sally Ride / Peggy Whitson inspired events
-  // Sally Ride special event — at most once per game
-// Low-probability female astronaut special events (at most one per game)
-if (
-  !state.usedEvents.has("sally_ride_legacy") &&
-  !state.usedEvents.has("whitson_endurance") &&
-  !state.usedEvents.has("jemison_moment") &&
-  !state.usedEvents.has("koch_endurance") &&
-  !state.usedEvents.has("meir_eva") &&
-  Math.random() < 0.10
-) {
-  const pioneer = Math.random();
 
-  if (pioneer < 0.25) {
-    pool.push({
-      id: "sally_ride_legacy",
-      title: "Sally Ride Moment",
-      desc: "A crew member recalls Sally Ride’s first flight while facing a systems decision.",
-      fact: '"I would like to be remembered as someone who was not afraid to do what she wanted to do." — Sally Ride',
-      options: [
-        { text: "Prioritize the science objective", effect: { morale: 4, power: -3 }, tradeoff: "Honor the mission spirit, use resources", isExperiment: true },
-        { text: "Focus on safety first", effect: { shield: 3, morale: 1 }, tradeoff: "Protect the crew" },
-        { text: "Balance both carefully", effect: { power: -1, morale: 2 }, tradeoff: "Moderate approach" }
-      ]
-    });
-  } else if (pioneer < 0.5) {
-    pool.push({
-      id: "whitson_endurance",
-      title: "Peggy Whitson Endurance Check",
-      desc: "Long-duration fatigue is setting in. Peggy Whitson held the record for most time in space.",
-      fact: "Peggy Whitson spent 665 days in space across multiple missions.",
-      options: [
-        { text: "Schedule extra rest", effect: { morale: 5, food: -1 }, tradeoff: "Recover morale, use supplies" },
-        { text: "Push through with training", effect: { morale: -1, power: -1 }, tradeoff: "Maintain schedule" },
-        { text: "Reduce non-critical tasks", effect: { morale: 2, power: 2 }, tradeoff: "Save energy" }
-      ]
-    });
-  } else if (pioneer < 0.75) {
-    pool.push({
-      id: "jemison_moment",
-      title: "Mae Jemison Moment",
-      desc: "The crew discusses how Mae Jemison balanced science and teamwork on her mission.",
-      fact: "Mae Jemison was the first African American woman in space.",
-      options: [
-        { text: "Emphasize collaborative science", effect: { morale: 4, power: -2 }, tradeoff: "Strengthen team, use resources", isExperiment: true },
-        { text: "Keep procedures strict", effect: { shield: 2, morale: 1 }, tradeoff: "Prioritize safety and order" },
-        { text: "Focus on efficiency", effect: { power: 2, morale: -1 }, tradeoff: "Save resources, lower morale" }
-      ]
-    });
-  } else {
-    pool.push({
-      id: "koch_endurance",
-      title: "Christina Koch Endurance Challenge",
-      desc: "The mission is stretching longer than planned. Christina Koch set the record for the longest single spaceflight by a woman.",
-      fact: "Christina Koch spent 328 days in space on a single mission.",
-      options: [
-        { text: "Extend rest periods", effect: { morale: 5, food: -2 }, tradeoff: "Protect long-term health" },
-        { text: "Maintain original schedule", effect: { power: -1, morale: -2 }, tradeoff: "Stay on timeline" },
-        { text: "Reduce non-essential experiments", effect: { power: 3, morale: 1 }, tradeoff: "Preserve resources" }
-      ]
-    });
-  }
 }
 
   if (state.stage === 5) {
@@ -565,10 +588,25 @@ if (
   desc: "Radiation levels are higher than expected.",
   fact: 'Real ISS radiation measurements: <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>',
   options: [
-    { text: "Increase shielding", effect: { shield: 8, power: -5 }, tradeoff: "Better protection, power cost" },
-    { text: "Limit EVA", effect: { shield: 3, morale: -2 }, tradeoff: "Reduce exposure" },
-    { text: "Continue as planned", effect: { shield: -6 }, tradeoff: "Accept higher dose" }
-  ]
+  {
+    text: "Prepare the radiation shelter",
+    effect: { shield: 5, power: -5 },
+    exposure: 1,
+    tradeoff: "Improve protection, use electricity"
+  },
+  {
+    text: "Cancel outdoor activities",
+    effect: { morale: -2 },
+    exposure: 3,
+    tradeoff: "Reduce exposure, delay activities"
+  },
+  {
+    text: "Continue as planned",
+    effect: { morale: 1 },
+    exposure: 8,
+    tradeoff: "Keep working, accept greater exposure"
+  }
+]
 }); 
   return pool;
 }
@@ -641,6 +679,37 @@ function triggerRandomEvent() {
   showEvent(ev);
 }
 
+function isSafeChoice(choice) {
+  const critical = ["oxygen", "water", "food", "power"];
+
+  return critical.every(key => {
+    const current = state.resources[key];
+    const change = choice.effect?.[key] || 0;
+
+    return current + change > 0;
+  });
+}
+
+function chooseCommanderDecision(ev, crewOpinions, playerVote) {
+  const votes = ev.options.map((_, i) =>
+    crewOpinions.filter(o => o.preferred === i).length +
+    (i === playerVote ? 1 : 0)
+  );
+
+  const ranked = ev.options
+    .map((_, i) => i)
+    .sort((a, b) =>
+      votes[b] - votes[a] ||
+      Number(isSafeChoice(ev.options[b])) -
+      Number(isSafeChoice(ev.options[a])) ||
+      a - b
+    );
+
+  // Prefer a safe option when one exists.
+  return ranked.find(i => isSafeChoice(ev.options[i]))
+    ?? ranked[0];
+}
+  
 function showEvent(ev) {
   state.paused = true;
   const crewOpinions = state.crew.map(c => {
@@ -656,7 +725,11 @@ function showEvent(ev) {
   if (ev.fact) html += `<div class="fact">${ev.fact}</div>`;
   html += `<h4>Crew Opinions</h4>`;
   crewOpinions.forEach(o => html += `<div class="crew-vote">${o.reason} Prefers option ${o.preferred + 1}.</div>`);
-  html += `<p><strong>Your Decision:</strong></p>`;
+
+  html += state.isCommander
+  ? `<p><strong>You are the Commander. Make the final decision:</strong></p>`
+  : `<p><strong>You are a Crew Member. Cast your vote:</strong></p>`;
+  
   ev.options.forEach((opt, i) => {
     html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:4px 0">${opt.text}<br><small>${opt.tradeoff}</small></button>`;
   });
@@ -667,19 +740,84 @@ function showEvent(ev) {
 
 function resolveEvent(idx) {
   const ev = window._currentEvent;
-  const choice = ev.options[idx];
-  for (const [k, v] of Object.entries(choice.effect)) 
-    state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + (v || 0)));
-  if (choice.isExperiment) state.experimentsDone = Math.min(2, state.experimentsDone + 1);
+  if (!ev || !ev.options[idx]) return;
 
-  const majority = window._crewOpinions.filter(o => o.preferred === idx).length >= 2;
-  const cmd = majority ? "Accepted majority" : "Commander override";
-  state.decisions.push({ title: ev.title, myChoice: choice.text, commanderDecision: cmd });
-  addLog(`My choice: ${choice.text}`);
-  addLog(`Final commander decision: ${cmd}`);
-  if (ev.followUp) state.pendingFollowUps.push(ev.followUp[0]);
+  const crewOpinions = window._crewOpinions || [];
+
+  let finalIdx;
+  let decisionType;
+
+  if (state.isCommander) {
+    finalIdx = idx;
+    decisionType = "Commander decision";
+  } else {
+    finalIdx = chooseCommanderDecision(
+      ev,
+      crewOpinions,
+      idx
+    );
+
+    decisionType = finalIdx === idx
+      ? "Commander accepted your vote"
+      : "Commander selected another option";
+  }
+
+  // Safety override for both roles.
+  if (!isSafeChoice(ev.options[finalIdx])) {
+    const safeIdx = ev.options.findIndex(isSafeChoice);
+
+    if (safeIdx !== -1) {
+      finalIdx = safeIdx;
+      decisionType = "Safety override activated";
+    }
+  }
+
+  const choice = ev.options[finalIdx];
+
+  for (const [key, value] of Object.entries(choice.effect)) {
+    state.resources[key] = Math.min(
+      100,
+      Math.max(0, state.resources[key] + value)
+    );
+  }
+
+  if (choice.isExperiment) {
+    state.experimentsDone = Math.min(
+      state.maxExperiments,
+      state.experimentsDone + 1
+    );
+  }
+
+  state.decisions.push({
+    title: ev.title,
+    myChoice: ev.options[idx].text,
+    finalChoice: choice.text,
+    commanderDecision: decisionType
+  });
+
+  addLog(
+    `${state.isCommander ? "My decision" : "My vote"}: ` +
+    ev.options[idx].text
+  );
+
+  addLog(`Final decision: ${choice.text} (${decisionType})`);
+
+  if (ev.followUp) {
+    state.pendingFollowUps.push(ev.followUp[0]);
+  }
+
   updateProgress();
-  setEventStatus('nominal', 'All systems nominal', 'Decision logged.');
+  renderBars();
+
+  window._currentEvent = null;
+  window._crewOpinions = null;
+
+  setEventStatus(
+    "nominal",
+    "Decision Resolved",
+    `Final decision: ${choice.text}`
+  );
+
   state.paused = false;
 }
 
@@ -689,7 +827,12 @@ function endMission(success, reason = "") {
   document.getElementById('end-screen').classList.remove('hidden');
   document.getElementById('end-title').textContent = success ? "Returned to Earth — Mission Complete" : "Mission Failed";
   const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
-  const decisionList = state.decisions.map(d => `• ${d.title} → My choice: ${d.myChoice} | Commander: ${d.commanderDecision}`).join("<br>") || "None";
+  
+  const decisionList = state.decisions.map(d =>
+      `• ${d.title} → My choice/vote: ${d.myChoice} | ` +
+      `Final: ${d.finalChoice || d.myChoice} | ` +
+      `${d.commanderDecision}`
+    ).join("<br>") || "None";
   const q = (success ? successQuotes : failureQuotes)[Math.floor(Math.random() * (success ? successQuotes.length : failureQuotes.length))];
   document.getElementById('end-summary').innerHTML = `
     <p>${success ? "You successfully returned to Earth." : "Mission aborted: " + reason}</p>
