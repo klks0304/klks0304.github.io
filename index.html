@@ -304,6 +304,30 @@ function setEventStatus(mode, title, contentHtml) {
   contentEl.innerHTML = contentHtml || '';
 }
 
+function showReadyPrompt(question, message) {
+  state.paused = true;
+
+  const area = document.getElementById('event-area');
+  const titleEl = document.getElementById('status-title');
+  const contentEl = document.getElementById('event-content');
+
+  area.classList.remove('nominal', 'decision');
+  area.classList.add('decision'); // 用 decision 樣式讓它更醒目
+
+  titleEl.textContent = question;
+  contentEl.innerHTML = `
+    <p>${message}</p>
+    <button onclick="playerIsReady()" style="margin-top:12px; font-size:1.1rem;">
+      Ready!
+    </button>
+  `;
+}
+
+function playerIsReady() {
+  state.paused = false;
+  setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
+}
+
 function startBirth() {
   state.profession = professions[Math.floor(Math.random() * professions.length)];
   state.location = locations[Math.floor(Math.random() * locations.length)];
@@ -401,29 +425,33 @@ function advanceOneSol() {
     state.stage = 2;
     updateStage();
     addLog(`Sol ${state.sol}: Arrived at ${state.location.name}! Base setup begins.`, true);
-    addLog(`Daily Report: We made it! Time to set up and prepare for ${state.location.experimentDays} days of science.`, true);
-    state.paused = true;
-    setEventStatus('nominal', 'Arrived!', 'Read the log, then click the Pause button to continue.');
+    addLog(`Daily Report: We made it! Time to set up and prepare for science.`, true);
+    showReadyPrompt("Are you ready to land?", "We have arrived! Get ready to set up the base.");
+    return;
   }
+  
   if (state.stage === 2 && state.sol >= sd.survival) {
     state.stage = 3;
     updateStage();
     addLog(`Sol ${state.sol}: Base setup complete. Survival phase begins.`, true);
   }
+  
   if (state.stage === 3 && state.sol >= sd.science) {
     state.stage = 4;
     updateStage();
     addLog(`Sol ${state.sol}: Science exploration phase starts.`, true);
-    state.paused = true;
-    setEventStatus('nominal', 'Science Phase', 'Time to do experiments! Click Pause to continue.');
+    showReadyPrompt("Are you ready to do science?", "Time to start experiments!");
+    return;
   }
+  
   if (state.stage === 4 && state.sol >= sd.return) {
-    state.stage = 5;
-    updateStage();
-    addLog(`Sol ${state.sol}: Science complete. Return journey begins!`, true);
-    state.paused = true;
-    setEventStatus('nominal', 'Returning Home', 'The crew is heading back to Earth. Click Pause to continue.');
-  }
+      state.stage = 5;
+      updateStage();
+      addLog(`Sol ${state.sol}: Science complete. Return journey begins!`, true);
+      showReadyPrompt("Are you ready to go home?", "The crew is heading back to Earth.");
+      return;
+    }
+  
   if (state.stage === 5 && state.sol >= sd.end) {
     state.stage = 6;
     updateStage();
