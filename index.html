@@ -159,6 +159,8 @@ const state = {
   stage: 1, focus: null, experimentsDone: 0, maxExperiments: 2,
   profession: null, location: null, isCommander: false,
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
+  radiationExposure: 0,          // ← 新增
+  highExposureAlertShown: false, // ← 新增（避免一直跳）
   log: [],
   decisions: [],
   usedEvents: new Set(),
@@ -323,6 +325,18 @@ function advanceOneSol() {
   state.resources.water  = Math.max(0, state.resources.water  - 0.9);
   state.resources.shield = Math.max(0, state.resources.shield - 0.2);
   state.resources.morale = Math.max(0, state.resources.morale - 0.15);
+
+  // Background radiation exposure (no bar shown)
+  const protection = state.resources.shield / 100;
+  const dailyExposure = 0.55 * (1 - protection);
+  state.radiationExposure = Math.min(100, state.radiationExposure + dailyExposure);
+
+  // Trigger kid-friendly alert when exposure gets high
+  if (!state.highExposureAlertShown && state.radiationExposure >= 72 && Math.random() < 0.45) {
+    state.highExposureAlertShown = true;
+    showHighExposureAlert();
+    return; // pause the day so the player can decide
+  }
   
   if (state.focus) {
     const f = focuses.find(x => x.id === state.focus);
@@ -699,6 +713,41 @@ function chooseCommanderDecision(ev, crewOpinions, playerVote) {
   // Prefer a safe option when one exists.
   return ranked.find(i => isSafeChoice(ev.options[i]))
     ?? ranked[0];
+}
+
+function showHighExposureAlert() {
+  state.paused = true;
+
+  const ev = {
+    id: "high_exposure_alert",
+    title: "Radiation Warning!",
+    desc: "The scientists say the astronauts have been in space for a while and have picked up more radiation than usual. Even if the shields look okay right now, too much radiation can make people feel tired or sick later.",
+    fact: "Real astronauts carefully watch radiation. Good shields help, but the radiation they already received does not disappear.",
+    options: [
+      {
+        text: "Fix the shields and stay inside more",
+        effect: { shield: 8, power: -6, morale: -1 },
+        tradeoff: "Safer, but uses more power",
+        exposureChange: -4
+      },
+      {
+        text: "Only do the most important experiments",
+        effect: { morale: -2, power: -2 },
+        tradeoff: "Do some science, but be careful",
+        isExperiment: true,
+        exposureChange: 2
+      },
+      {
+        text: "Keep working outside as planned",
+        effect: { morale: 2, power: 1 },
+        tradeoff: "Get more done now, but more radiation later",
+        exposureChange: 9
+      }
+    ]
+  };
+
+  // Re-use the existing showEvent if possible, or build a simple version:
+  showEvent(ev);
 }
   
 function showEvent(ev) {
