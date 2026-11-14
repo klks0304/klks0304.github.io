@@ -330,15 +330,6 @@ function advanceOneSol() {
       state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
   }
 
-  // Simplified daily radiation exposure model
-  const protection = state.resources.shield / 100;
-  
-  const dailyExposure = 0.6 * (1 - protection);
-  
-  state.radiationExposure = Math.min(
-    100,
-    state.radiationExposure + dailyExposure
-  );
 
   if (state.stage === 1 && state.sol >= 5) { state.stage = 2; updateStage(); addLog("Arrived. Base setup begins."); }
   if (state.stage === 2 && state.sol >= 10) { state.stage = 3; updateStage(); addLog("Base Survival phase."); }
@@ -419,24 +410,6 @@ function renderBars() {
     return `<div class="bar-wrap"><div class="bar-label"><span>${labels[k]}</span><span>${val}</span></div><div class="bar"><div class="bar-fill" style="width:${val}%;background:${color}"></div></div></div>`;
   }).join('');
   
-  const exposure = Math.round(state.radiationExposure);
-
-  document.getElementById('resource-bars').innerHTML += `
-    <div class="bar-wrap">
-      <div class="bar-label">
-        <span>Radiation Exposure (Lower is Better)</span>
-        <span>${exposure}/100</span>
-      </div>
-      <div class="bar">
-        <div class="bar-fill"
-          style="
-            width:${exposure}%;
-            background:${exposure > 70 ? '#ef5350' : '#ffa726'};
-          ">
-        </div>
-      </div>
-    </div>
-  `;
 }
 function renderFocusButtons() {
   document.getElementById('focus-buttons').innerHTML = focuses.map(f =>
@@ -792,13 +765,6 @@ function resolveEvent(idx) {
 
   const choice = ev.options[finalIdx];
 
-  if (choice.exposure) {
-    state.radiationExposure = Math.min(
-      100,
-      state.radiationExposure + choice.exposure
-    );
-  }
-
   for (const [k, v] of Object.entries(state.resources)) {
     if (k === "shield") continue;
   
@@ -808,13 +774,6 @@ function resolveEvent(idx) {
     }
   }
 
-if (state.radiationExposure >= 100) {
-  endMission(
-    false,
-    "Radiation exposure exceeded the mission safety limit."
-  );
-  return;
-}
 
   if (choice.isExperiment) {
     state.experimentsDone = Math.min(
