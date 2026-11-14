@@ -134,45 +134,60 @@ const professions = [
 ];
 
 const locations = [
-  { 
-    name: "International Space Station", 
-    type: "station", 
+  {
+    name: "International Space Station",
+    type: "station",
     special: "Microgravity experiments",
+    experimentTarget: 6,
     experimentDays: 6,
     totalDays: 9,
-    stageDays: { arrival: 2, survival: 3, science: 3, return: 8, end: 9 }
+    stageDays: {
+      arrival: 2, survival: 3, science: 3, return: 8, end: 9
+    }
   },
-  { 
-    name: "Sea of Tranquility (Moon)", 
-    type: "moon", 
+  {
+    name: "Sea of Tranquility (Moon)",
+    type: "moon",
     special: "Radiation and energy challenges",
+    experimentTarget: 8,
     experimentDays: 8,
     totalDays: 16,
-    stageDays: { arrival: 4, survival: 6, science: 6, return: 14, end: 16 }
+    stageDays: {
+      arrival: 4, survival: 6, science: 6, return: 14, end: 16
+    }
   },
-  { 
-    name: "Lunar South Pole", 
-    type: "moon", 
+  {
+    name: "Lunar South Pole",
+    type: "moon",
     special: "Possible water ice",
+    experimentTarget: 8,
     experimentDays: 8,
     totalDays: 16,
-    stageDays: { arrival: 4, survival: 6, science: 6, return: 14, end: 16 }
+    stageDays: {
+      arrival: 4, survival: 6, science: 6, return: 14, end: 16
+    }
   },
-  { 
-    name: "Gale Crater (Mars)", 
-    type: "mars", 
+  {
+    name: "Gale Crater (Mars)",
+    type: "mars",
     special: "Long-term survival",
+    experimentTarget: 12,
     experimentDays: 12,
     totalDays: 27,
-    stageDays: { arrival: 7, survival: 10, science: 10, return: 22, end: 27 }
+    stageDays: {
+      arrival: 7, survival: 10, science: 10, return: 22, end: 27
+    }
   },
-  { 
-    name: "Jezero Crater (Mars)", 
-    type: "mars", 
+  {
+    name: "Jezero Crater (Mars)",
+    type: "mars",
     special: "Resource cycling",
+    experimentTarget: 12,
     experimentDays: 12,
     totalDays: 27,
-    stageDays: { arrival: 7, survival: 10, science: 10, return: 22, end: 27 }
+    stageDays: {
+      arrival: 7, survival: 10, science: 10, return: 22, end: 27
+    }
   }
 ];
 
@@ -208,7 +223,17 @@ const failureQuotes = [
 
 const state = {
   sol: 0, running: false, paused: false, speed: 1, interval: null,
-  stage: 1, focus: null, experimentsDone: 0, maxExperiments: 2,
+  stage: 1,focus: null,
+    // 由 missionExperiments 的完成狀態同步計算
+    experimentsDone: 0,
+    maxExperiments: 0,
+    
+    // 本次任務的唯一研究清單
+    missionExperiments: [],
+    
+    // 達到 60% 所需完成數
+    minimumExperiments: 0,
+  
   profession: null, location: null, isCommander: false,
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
   radiationExposure: 0,          // ← 新增
@@ -345,21 +370,75 @@ function playerIsReady() {
 }
 
 function startBirth() {
-  state.profession = professions[Math.floor(Math.random() * professions.length)];
-  state.location = locations[Math.floor(Math.random() * locations.length)];
-  // Set mission timeline from location
-  state.maxExperiments = state.location.experimentDays;
+  state.profession = professions[
+    Math.floor(Math.random() * professions.length)
+  ];
+
+  state.location = locations[
+    Math.floor(Math.random() * locations.length)
+  ];
+
   state.expectedTotalDays = state.location.totalDays;
-  state.stageDays = state.location.stageDays;
-  state.isCommander = Math.random() < state.profession.commanderChance;
-  document.getElementById('intro-screen').classList.add('hidden');
-  document.getElementById('birth-result').classList.remove('hidden');
-  document.getElementById('birth-info').innerHTML = `
+  state.stageDays = { ...state.location.stageDays };
+
+  state.isCommander =
+    Math.random() < state.profession.commanderChance;
+
+  // 產生獨立副本，不直接修改研究定義。
+  state.missionExperiments = buildMissionExperiments(
+    state.location
+  );
+
+  syncExperimentCounts();
+
+  document.getElementById("intro-screen")
+    .classList.add("hidden");
+
+  document.getElementById("birth-result")
+    .classList.remove("hidden");
+
+  const phaseLabels = {
+    outbound: "On the way",
+    destination: "At the destination",
+    return: "On the way home"
+  };
+
+  const phaseSummary = [
+    "outbound",
+    "destination",
+    "return"
+  ].map(phase => {
+    const count = state.missionExperiments.filter(
+      exp => exp.phase === phase
+    ).length;
+
+    return `${phaseLabels[phase]}: ${count}`;
+  }).join(" · ");
+
+  document.getElementById("birth-info").innerHTML = `
     <p><strong>Profession:</strong> ${state.profession.name}</p>
-    <p><strong>Landing Site:</strong> ${state.location.name}</p>
-    <p><strong>Role:</strong> ${state.isCommander ? '<span style="color:#ffa726">Commander</span>' : 'Crew Member'}</p>
-    <p><strong>Estimated Total Mission Time:</strong> ${state.expectedTotalDays} sols</p>
-    <p><strong>Planned Science Days:</strong> ${state.location.experimentDays} sols</p>
+    <p><strong>Destination:</strong> ${state.location.name}</p>
+
+    <p><strong>Role:</strong>
+      ${state.isCommander
+        ? '<span style="color:#ffa726">Commander</span>'
+        : "Crew Member"}
+    </p>
+
+    <p><strong>Estimated Total Mission Time:</strong>
+      ${state.expectedTotalDays} sols
+    </p>
+
+    <p><strong>Research Activities:</strong>
+      ${state.maxExperiments} across the whole mission
+    </p>
+
+    <p><strong>Science Goal:</strong>
+      Complete at least ${state.minimumExperiments}
+      of ${state.maxExperiments} activities.
+    </p>
+
+    <p><small>${phaseSummary}</small></p>
   `;
 }
 
@@ -387,7 +466,26 @@ function updateStage() {
   document.getElementById('stage-badge').textContent = `0${s.id} ${s.name}`;
 }
 function updateProgress() {
-  document.getElementById('mission-progress').textContent = `Experiments: ${state.experimentsDone} / ${state.maxExperiments}`;
+  syncExperimentCounts();
+
+  const pending = state.missionExperiments.filter(
+    exp => exp.status === "pending"
+  ).length;
+
+  const cancelled = state.missionExperiments.filter(
+    exp => exp.status === "cancelled"
+  ).length;
+
+  const percent = state.maxExperiments > 0
+    ? Math.floor(
+        state.experimentsDone / state.maxExperiments * 100
+      )
+    : 0;
+
+  document.getElementById("mission-progress").textContent =
+    `Research: ${state.experimentsDone} / ${state.maxExperiments} ` +
+    `(${percent}%) · Goal: ${state.minimumExperiments} completed · ` +
+    `Remaining: ${pending} · Cancelled: ${cancelled}`;
 }
 
 function tick() {
@@ -828,87 +926,414 @@ function getEventPool() {
 
 // OSDR-inspired experiment content
 // OSDR / CSA inspired daily experiments (no decision needed)
+const researchSources = {
+  lettuce: {
+    label: "NASA OSDR — Space Lettuce",
+    url: "https://osdr.nasa.gov/bio/repo/data/studies/OSD-267"
+  },
+  lighting: {
+    label: "NASA OSDR — Plant Lighting",
+    url: "https://osdr.nasa.gov/bio/repo/data/studies/OSD-766"
+  },
+  radiation: {
+    label: "NASA RadLab — Radiation Data",
+    url: "https://visualization.osdr.nasa.gov/radlab/gui/data-api/"
+  }
+};
+
+// 所有項目都是根據真實研究改編的遊戲活動。
+// requirements 先保存設定，第二批才接上資源限制。
+// basic：正常完成任務時，預定保障的基礎研究。
+// challenge：第二批接上玩家選擇及資源需求。
+function makeResearch(
+  id,
+  name,
+  phase,
+  category,
+  sourceKey,
+  description,
+  requirements = {}
+) {
+  return {
+    id,
+    name,
+    phase,
+    category,
+    source: researchSources[sourceKey],
+    description,
+    requirements: { ...requirements },
+    success: `Research activity completed: ${name}.`
+  };
+}
+
+// 每個目的地共用的四項研究。
+// 去程：建立樣本起始紀錄、研究航行輻射。
+// 回程：分析微生物分布、檢查資料完整性。
+const commonResearch = [
+  makeResearch(
+    "seed_start",
+    "Seed Starting Record",
+    "outbound",
+    "basic",
+    "lettuce",
+    "Record the seeds' starting condition for a fair plant study."
+  ),
+  makeResearch(
+    "cruise_radiation",
+    "Radiation During Travel",
+    "outbound",
+    "basic",
+    "radiation",
+    "Explore how a radiation reading can change during a space journey."
+  ),
+  makeResearch(
+    "leaf_root_analysis",
+    "Leaves or Roots?",
+    "return",
+    "basic",
+    "lettuce",
+    "Explore whether leaves and roots can have different tiny microbes."
+  ),
+  makeResearch(
+    "radiation_data_quality",
+    "Find the Missing Reading",
+    "return",
+    "basic",
+    "radiation",
+    "Check a radiation record for missing measurements before drawing a conclusion."
+  )
+];
+
 const experimentsByType = {
   station: [
-    { 
-      name: "Plant Growth", 
-      success: 'We grew plants in space! Astronauts can eat fresh greens. <a href="https://www.nasa.gov/missions/station/ways-the-international-space-station-helps-us-study-plant-growth-in-space/" target="_blank">See real space plants</a>' 
-    },
-    { 
-      name: "Sleep Study", 
-      success: 'We studied how astronauts sleep in space. <a href="https://osdr.nasa.gov/bio/repo/search?q=sleep&data_source=cgene,alsda,esa&data_type=study" target="_blank">View sleep studies on OSDR</a>' 
-    },
-    { 
-      name: "Fluid Physics", 
-      success: 'We watched how water floats in space! <a href="https://www.nasa.gov/image-article/water-droplet-in-space/" target="_blank">See water in space</a>' 
-    }
+    ...commonResearch,
+    makeResearch(
+      "iss_light_recipe",
+      "Which Plant Light?",
+      "destination",
+      "challenge",
+      "lighting",
+      "Compare two light recipes for the station's plant experiment.",
+      { power: 25, water: 15 }
+    ),
+    makeResearch(
+      "iss_food_safety",
+      "Safe Space Salad",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Test a simulated leaf sample for microbes before snack time.",
+      { power: 20 }
+    )
   ],
+
   moon: [
-    { 
-      name: "Radiation Shield Test", 
-      success: 'We tested ways to block radiation on the Moon. <a href="https://osdr.nasa.gov/bio/repo/search?q=radiation&data_source=cgene,alsda,esa&data_type=study" target="_blank">See radiation studies</a>' 
-    },
-    { 
-      name: "Moon Dust Study", 
-      success: 'We studied Moon dust and how it affects things. <a href="https://trek.nasa.gov/moon/" target="_blank">Explore the Moon</a>' 
-    },
-    { 
-      name: "Solar Power Check", 
-      success: 'We checked solar panels for power on the Moon. <a href="https://www.nasa.gov/mission_pages/station/research/experiments/explorer/Investigation.html?#id=1878" target="_blank">Learn about solar power in space</a>' 
-    }
+    ...commonResearch,
+    makeResearch(
+      "moon_radiation_record",
+      "Moon Radiation Detective",
+      "destination",
+      "basic",
+      "radiation",
+      "Explore a historical lunar radiation record."
+    ),
+    makeResearch(
+      "moon_light_trial",
+      "Moon Greenhouse Lights",
+      "destination",
+      "challenge",
+      "lighting",
+      "Try two plant-light recipes in a simulated Moon greenhouse.",
+      { power: 30, water: 20 }
+    ),
+    makeResearch(
+      "moon_food_safety",
+      "Moon Salad Safety",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Test a simulated greenhouse leaf sample for microbes.",
+      { power: 20 }
+    ),
+    makeResearch(
+      "moon_leaf_nutrients",
+      "What's Inside a Leaf?",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Compare plant nutrient measurements in a simulated Moon food study.",
+      { power: 25 }
+    )
   ],
+
   mars: [
-    { 
-      name: "Water Recycling", 
-      success: 'We practiced recycling water for long trips. <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">See food & water ideas</a>' 
-    },
-    { 
-      name: "Dust Storm Prep", 
-      success: 'We got ready for dusty days on Mars. <a href="https://trek.nasa.gov/mars/" target="_blank">Explore Mars</a>' 
-    },
-    { 
-      name: "Long-term Food Test", 
-      success: 'Can we grow food for many months on Mars? <a href="https://www.nasa.gov/missions/station/ways-the-international-space-station-helps-us-study-plant-growth-in-space/" target="_blank">See space farming</a>' 
-    }
+    ...commonResearch,
+    makeResearch(
+      "mars_radiation_record",
+      "Mars Radiation Detective",
+      "destination",
+      "basic",
+      "radiation",
+      "Explore a historical Mars-surface radiation record."
+    ),
+    makeResearch(
+      "mars_time_pattern",
+      "Radiation Through Time",
+      "destination",
+      "basic",
+      "radiation",
+      "Look for changes across several measurements from one Mars instrument."
+    ),
+    makeResearch(
+      "mars_environment_record",
+      "Greenhouse Weather",
+      "destination",
+      "basic",
+      "lighting",
+      "Record temperature and humidity in a simulated Mars greenhouse."
+    ),
+    makeResearch(
+      "mars_growth_measure",
+      "Measure a Growing Plant",
+      "destination",
+      "basic",
+      "lettuce",
+      "Measure plant growth in the simulated greenhouse and record the result."
+    ),
+    makeResearch(
+      "mars_light_trial",
+      "Red Light or Blue Light?",
+      "destination",
+      "challenge",
+      "lighting",
+      "Compare two plant-light recipes in the simulated Mars greenhouse.",
+      { power: 30, water: 20 }
+    ),
+    makeResearch(
+      "mars_food_safety",
+      "Safe Mars Salad",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Test a simulated leaf sample for microbes before the crew eats it.",
+      { power: 20 }
+    ),
+    makeResearch(
+      "mars_leaf_nutrients",
+      "Mars Food Nutrients",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Compare nutrient measurements from simulated greenhouse crops.",
+      { power: 25 }
+    ),
+    makeResearch(
+      "mars_harvest_trial",
+      "One Harvest or Several?",
+      "destination",
+      "challenge",
+      "lettuce",
+      "Compare harvesting a whole plant with picking a few leaves at a time.",
+      { power: 25, water: 25 }
+    )
   ]
 };
+
+// 將活動平均分配到指定時間範圍。
+// 同一天可以有多項研究，第二批會依序排隊處理。
+function distributeDays(start, end, count) {
+  if (!count) return [];
+
+  if (end < start) {
+    throw new Error("Invalid research schedule window.");
+  }
+
+  return Array.from(
+    { length: count },
+    (_, i) => start + Math.floor(i * (end - start + 1) / count)
+  );
+}
+
+function buildMissionExperiments(location) {
+  const definitions = experimentsByType[location.type];
+
+  if (!definitions) {
+    throw new Error(`Unknown destination type: ${location.type}`);
+  }
+
+  if (definitions.length !== location.experimentTarget) {
+    throw new Error(
+      `${location.type}: expected ${location.experimentTarget} research activities, ` +
+      `but found ${definitions.length}.`
+    );
+  }
+
+  const ids = definitions.map(exp => exp.id);
+
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Duplicate research IDs found.");
+  }
+
+  const minimum = Math.ceil(location.experimentTarget * 0.6);
+  const basicCount = definitions.filter(
+    exp => exp.category === "basic"
+  ).length;
+
+  if (basicCount !== minimum) {
+    throw new Error(
+      `${location.type}: expected ${minimum} basic research activities.`
+    );
+  }
+
+  const sd = location.stageDays;
+
+  const windows = {
+    outbound: [1, sd.arrival - 1],
+    destination: [sd.science, sd.return - 1],
+    return: [sd.return, sd.end - 1]
+  };
+
+  const result = [];
+
+  for (const phase of ["outbound", "destination", "return"]) {
+    const group = definitions.filter(exp => exp.phase === phase);
+
+    const days = distributeDays(
+      windows[phase][0],
+      windows[phase][1],
+      group.length
+    );
+
+    group.forEach((exp, index) => {
+      result.push({
+        ...exp,
+        requirements: { ...exp.requirements },
+        scheduledDay: days[index],
+        status: "pending",
+        completedDay: null,
+        cancelledDay: null,
+        cancelReason: "",
+        result: ""
+      });
+    });
+  }
+
+  return result.sort(
+    (a, b) => a.scheduledDay - b.scheduledDay
+  );
+}
+
+// 唯一的完成數同步入口。
+// 保留 experimentsDone，讓既有結算仍可讀取。
+function syncExperimentCounts() {
+  state.maxExperiments = state.missionExperiments.length;
+
+  state.minimumExperiments = Math.ceil(
+    state.maxExperiments * 0.6
+  );
+
+  state.experimentsDone = state.missionExperiments.filter(
+    exp => exp.status === "completed"
+  ).length;
+}
+
+// 每項研究只能從 pending 變成 completed 一次。
+// 已完成、已取消、或不存在的 ID 都不能計分。
+function completeExperiment(id, result = "") {
+  const exp = state.missionExperiments.find(
+    item => item.id === id
+  );
+
+  if (!exp || exp.status !== "pending") return false;
+
+  exp.status = "completed";
+  exp.completedDay = state.sol;
+  exp.result = result || exp.success;
+
+  syncExperimentCounts();
+  updateProgress();
+
+  addLog(`Research complete: ${exp.name}. ${exp.result}`, true);
+
+  return true;
+}
 
 
 // Call this in advanceOneSol() for daily reports (no decision needed)
 function tryOSDRDailyReport() {
-  if (state.stage < 2 || state.stage >= 5) return; // only after arrival, before return
-  if (Math.random() < 0.35) {
-    const list = experimentsByType[state.location.type] || experimentsByType.station;
-    const exp = list[Math.floor(Math.random() * list.length)];
-    addLog(`Daily Report: Working on ${exp.name}. ${exp.success}`, true);
-  }
+  if (!state.running || state.paused) return;
+  if (state.stage < 2 || state.stage >= 5) return;
+  if (Math.random() >= 0.35) return;
+
+  const pending = state.missionExperiments.filter(
+    exp =>
+      exp.phase === "destination" &&
+      exp.status === "pending"
+  );
+
+  if (!pending.length) return;
+
+  const exp = pending[
+    Math.floor(Math.random() * pending.length)
+  ];
+
+  addLog(
+    `Research planned: ${exp.name}. Not completed yet.`,
+    true
+  );
 }
 
 // Optional: OSDR-related decision event (add inside getEventPool())
 function getOSDRDecisionEvent() {
-  if (Math.random() < 0.18 && state.stage >= 3 && !state.usedEvents.has("osdr_experiment")) {
-    //const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
-    const list =
-      experimentsByType[state.location.type] || experimentsByType.station;
-    
-    const exp = list[Math.floor(Math.random() * list.length)];
+  // 第一批暫時保留既有的觸發階段和機率。
+  if (state.stage < 3 || state.stage >= 5) return null;
+  if (Math.random() >= 0.18) return null;
 
-    
-    return {
-      id: "osdr_experiment",
-      title: `OSDR Experiment: ${exp.name}`,
-      desc:
-            `The crew is conducting a ${exp.name} experiment. ` +
-            `Limited resources require a decision.`,
-      fact: `<a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">NASA OSDR Biology Studies</a>`,
-      options: [
-        { text: "Prioritize full data collection", effect: { power: -3, morale: 2 }, tradeoff: "Maximize science return", isExperiment: true },
-        { text: "Collect partial data", effect: { power: -1, morale: 1 }, tradeoff: "Balanced approach", isExperiment: true },
-        { text: "Postpone the experiment", effect: { morale: -2 }, tradeoff: "Preserve resources" }
-      ]
-    };
-  }
-  return null;
+  const candidates = state.missionExperiments.filter(
+    exp =>
+      exp.status === "pending" &&
+      exp.phase === "destination" &&
+      exp.scheduledDay <= state.sol &&
+      !state.usedEvents.has(`research_${exp.id}`)
+  );
+
+  if (!candidates.length) return null;
+
+  const exp = candidates[0];
+
+  return {
+    id: `research_${exp.id}`,
+    experimentId: exp.id,
+    title: `Research: ${exp.name}`,
+    desc: exp.description,
+
+    fact:
+      `Game activity inspired by real research. ` +
+      `<a href="${exp.source.url}" target="_blank" ` +
+      `rel="noopener noreferrer">${exp.source.label}</a>`,
+
+    options: [
+      {
+        text: "Collect the full data",
+        effect: { power: -3, morale: 2 },
+        tradeoff: "Use more power for detailed observations",
+        isExperiment: true,
+        researchResult: "Full observations recorded."
+      },
+      {
+        text: "Collect the basic data",
+        effect: { power: -1, morale: 1 },
+        tradeoff: "Use less power and record the basic observations",
+        isExperiment: true,
+        researchResult: "Basic observations recorded."
+      },
+      {
+        text: "Postpone this activity",
+        effect: { morale: -2 },
+        tradeoff: "Keep it unfinished for now"
+      }
+    ]
+  };
 }
   
 function triggerRandomEvent() {
@@ -1090,11 +1515,25 @@ function resolveEvent(idx) {
   }
 
 
-  if (choice.isExperiment) {
-    state.experimentsDone = Math.min(
-      state.maxExperiments,
-      state.experimentsDone + 1
-    );
+  if (ev.experimentId) {
+    if (choice.isExperiment) {
+      completeExperiment(
+        ev.experimentId,
+        choice.researchResult || "Research observations recorded."
+      );
+    } else {
+      // 延後不計分，也不標記完成。
+      // 移除事件使用標記，讓這項研究之後仍有機會出現。
+      state.usedEvents.delete(ev.id);
+  
+      const exp = state.missionExperiments.find(
+        item => item.id === ev.experimentId
+      );
+  
+      if (exp && exp.status === "pending") {
+        addLog(`Research postponed: ${exp.name}.`);
+      }
+    }
   }
 
   state.decisions.push({
