@@ -426,7 +426,7 @@ function advanceOneSol() {
     updateStage();
     addLog(`Sol ${state.sol}: Arrived at ${state.location.name}! Base setup begins.`, true);
     addLog(`Daily Report: We made it! Time to set up and prepare for science.`, true);
-    showReadyPrompt("Are you ready to land?", "We have arrived! Get ready to set up the base.");
+    showReadyPrompt("Ready to arrive??", "We have arrived! Get ready to set up the base.");
     return;
   }
   
@@ -682,7 +682,7 @@ function getEventPool() {
       title: "Solar Particle Event",
       desc: state.donki && state.donki.length > 0
           ? `Solar particle alert! Help your crew stay safe!! NASA saw this on ${state.donki[0].date ? state.donki[0].date.slice(0, 10) : "a recent day"}.`
-          : "Solar particle alert! Help your crew stay safe! Radiation is higher now.,
+          : "Solar particle alert! Help your crew stay safe! Radiation is higher now.",
       fact: '<a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI Space Weather</a>',
       options: [
         { text: "Everyone go to the shelter", effect: { shield: 9, power: -7, morale: -1 }, tradeoff: "Best protection, uses a lot of power" },
