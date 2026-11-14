@@ -327,8 +327,14 @@ async function startMission() {
   document.getElementById('birth-result').classList.add('hidden');
   document.getElementById('game-screen').classList.remove('hidden');
   document.getElementById('player-info').textContent = `${state.profession.name} · ${state.location.name}`;
-  updateStage(); renderBars(); renderFocusButtons(); updateProgress();
+  updateStage(); 
+  renderBars(); 
+  renderFocusButtons(); 
+  updateProgress();
+  
   addLog("Mission launch. Checking NASA space weather data...");
+  addLog(`Sol 0: Mission launched toward ${state.location.name}. Estimated total time: ${state.expectedTotalDays} sols.`, true);
+  
   checkDONKI();
   fetchAPOD();
   setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
@@ -396,6 +402,8 @@ function advanceOneSol() {
     updateStage();
     addLog(`Sol ${state.sol}: Arrived at ${state.location.name}! Base setup begins.`, true);
     addLog(`Daily Report: We made it! Time to set up and prepare for ${state.location.experimentDays} days of science.`, true);
+    state.paused = true;
+    setEventStatus('nominal', 'Arrived!', 'Read the log, then click the Pause button to continue.');
   }
   if (state.stage === 2 && state.sol >= sd.survival) {
     state.stage = 3;
@@ -406,15 +414,22 @@ function advanceOneSol() {
     state.stage = 4;
     updateStage();
     addLog(`Sol ${state.sol}: Science exploration phase starts.`, true);
+    state.paused = true;
+    setEventStatus('nominal', 'Science Phase', 'Time to do experiments! Click Pause to continue.');
   }
   if (state.stage === 4 && state.sol >= sd.return) {
     state.stage = 5;
     updateStage();
     addLog(`Sol ${state.sol}: Science complete. Return journey begins!`, true);
+    state.paused = true;
+    setEventStatus('nominal', 'Returning Home', 'The crew is heading back to Earth. Click Pause to continue.');
   }
   if (state.stage === 5 && state.sol >= sd.end) {
     state.stage = 6;
     updateStage();
+    addLog(`Sol ${state.sol}: Successfully returned to Earth!`, true);
+    addLog(`Daily Report: The crew is back home. Total mission time: ${state.sol} sols.`, true);
+    state.paused = true;
     endMission(true);
   }
   
@@ -441,17 +456,17 @@ function advanceOneSol() {
   if (Math.random() < chance) triggerRandomEvent();
 
   if (Math.random() < 0.15) {
-      const narrative = getDONKINarrative();
-    
-      if (narrative) {
-        addLog(
-          `${narrative.title}: ${narrative.text}`
-        );
-      }
+    const narrative = getDONKINarrative();
+    if (narrative) {
+      addLog(`${narrative.title}: ${narrative.text}`);
     }
+  }
       
   for (const [k, v] of Object.entries(state.resources)) {
-    if (v <= 0) { endMission(false, `Critical system “${k}” collapsed.`); return; }
+    if (v <= 0) { 
+      endMission(false, `Critical system “${k}” collapsed.`); 
+      return; 
+    }
   }
 }
 
@@ -1037,35 +1052,66 @@ function resolveEvent(idx) {
 }
 
 function endMission(success, reason = "") {
-  state.running = false; clearInterval(state.interval);
+  state.running = false;
+  clearInterval(state.interval);
+
   document.getElementById('game-screen').classList.add('hidden');
   document.getElementById('end-screen').classList.remove('hidden');
-  document.getElementById('end-title').textContent = success ? "Returned to Earth — Mission Complete" : "Mission Failed";
-  const finalRes = Object.entries(state.resources).map(([k,v]) => `${k}: ${Math.round(v)}`).join(" · ");
-  
+
+  // 科學成果判斷（完成 60% 以上實驗算科學成功）
+  const scienceGoal = state.maxExperiments || 2;
+  const scienceSuccess = state.experimentsDone >= Math.ceil(scienceGoal * 0.6);
+  const safeReturn = success;
+
+  let title = "";
+  let resultText = "";
+
+  if (safeReturn && scienceSuccess) {
+    title = "Mission Complete — Safe Return & Science Success";
+    resultText = `You safely returned to Earth and achieved the science goals (${state.experimentsDone}/${scienceGoal} experiments).`;
+  } else if (safeReturn && !scienceSuccess) {
+    title = "Safe Return — Science Goals Partially Met";
+    resultText = `You safely returned to Earth, but only completed ${state.experimentsDone}/${scienceGoal} experiments.`;
+  } else {
+    title = "Mission Failed";
+    resultText = "Mission aborted: " + (reason || "Critical system failure.");
+  }
+
+  document.getElementById('end-title').textContent = title;
+
+  const finalRes = Object.entries(state.resources)
+    .map(([k, v]) => `${k}: ${Math.round(v)}`)
+    .join(" · ");
+
   const decisionList = state.decisions.map(d =>
-      `• ${d.title} → My choice/vote: ${d.myChoice} | ` +
-      `Final: ${d.finalChoice || d.myChoice} | ` +
-      `${d.commanderDecision}`
-    ).join("<br>") || "None";
-  const q = (success ? successQuotes : failureQuotes)[Math.floor(Math.random() * (success ? successQuotes.length : failureQuotes.length))];
+    `• ${d.title} → My choice/vote: ${d.myChoice} | ` +
+    `Final: ${d.finalChoice || d.myChoice} | ` +
+    `${d.commanderDecision}`
+  ).join("<br>") || "None";
+
+  const q = (success ? successQuotes : failureQuotes)[
+    Math.floor(Math.random() * (success ? successQuotes.length : failureQuotes.length))
+  ];
+
   document.getElementById('end-summary').innerHTML = `
-    <p>${success ? "You successfully returned to Earth." : "Mission aborted: " + reason}</p>
+    <p>${resultText}</p>
+    <p><strong>Total Mission Time:</strong> ${state.sol} sols</p>
+    <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
     <p><strong>NASA Data Used:</strong> ${state.solarActivity.info || "None detected"}</p>
     <p><strong>Final Resources:</strong> ${finalRes}</p>
-    <p><strong>Experiments:</strong> ${state.experimentsDone} / 2</p>
+    <p><strong>Experiments:</strong> ${state.experimentsDone} / ${scienceGoal}</p>
     <p><strong>Decisions:</strong><br>${decisionList}</p>
     <div class="quote">“${q.quote}”<br><span style="opacity:0.8">— ${q.author}</span></div>
     <div class="fact">
-  <strong>Further Learning:</strong><br>
-  <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-  <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
-  <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
-  <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a> · 
-  <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a><br>
-  <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production</a> · 
-  <a href="https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp" target="_blank">CSA STEM Resources</a>
-</div>
+      <strong>Further Learning:</strong><br>
+      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a> · 
+      <a href="https://osdr.nasa.gov/bio/repo/" target="_blank">OSDR</a> · 
+      <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a> · 
+      <a href="https://trek.nasa.gov/mars/" target="_blank">Mars Trek</a><br>
+      <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank">CSA Food Production</a> · 
+      <a href="https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp" target="_blank">CSA STEM Resources</a>
+    </div>
   `;
 }
 </script>
