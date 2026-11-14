@@ -1750,38 +1750,47 @@ function getOSDRDecisionEvent(experimentId) {
 
   if (!exp || exp.status !== "pending") return null;
 
-  const fact =
-    "Game activity inspired by real research. " +
-    `<a href="${exp.source.url}" target="_blank" ` +
-    `rel="noopener noreferrer">${exp.source.label}</a>`;
-
   const base = {
     id: `research_${exp.id}`,
     experimentId: exp.id,
     title: `Research: ${exp.name}`,
     desc: exp.description,
-    fact
+
+    fact:
+      "Game activity inspired by real research. " +
+      `<a href="${exp.source.url}" target="_blank" ` +
+      `rel="noopener noreferrer">${exp.source.label}</a>`
   };
 
-  // 基礎研究：使用預留器材，不提供取消選項。
+  // 休息代表直接跳過，不計分、不再安排。
+  const restOption = {
+    text: "I need a rest. Skip this activity.",
+    effect: {},
+    tradeoff:
+      "This activity will not count as completed and will not be offered again.",
+    researchAction: "rest"
+  };
+
+  // 基礎研究：參加或休息。
   if (exp.category === "basic") {
     return {
       ...base,
       options: [
         {
-          text: "Record the observations",
+          text: "Yes! Join the research.",
           effect: {},
           tradeoff:
-            "Basic research uses the mission's reserved research kit.",
+            "Use the reserved research kit to record observations.",
           researchAction: "complete",
           researchResult:
-            "Basic observations recorded with the reserved research kit."
-        }
+            "You joined the research and recorded the observations."
+        },
+        restOption
       ]
     };
   }
 
-  // 挑戰研究：資源不足時強制取消。
+  // 挑戰研究：先檢查資源。
   const missing = getMissingResearchResources(exp);
 
   if (missing.length) {
@@ -1794,13 +1803,14 @@ function getOSDRDecisionEvent(experimentId) {
 
       options: [
         {
-          text: "Cancel this activity to protect the crew",
+          text: "Cancel this activity to protect the crew.",
           effect: {},
           tradeoff: missing.join("; "),
           researchAction: "cancel",
           cancelReason:
             `Insufficient resources: ${missing.join("; ")}.`
-        }
+        },
+        restOption
       ]
     };
   }
@@ -1860,21 +1870,13 @@ function getOSDRDecisionEvent(experimentId) {
               text: "Try again next mission day",
               effect: {},
               tradeoff:
-                "No result yet. Supplies will be checked again tomorrow.",
+                "Not completed yet. Try again tomorrow before this phase ends.",
               researchAction: "postpone"
             }
           ]
         : []),
 
-      {
-        text: "Skip this activity",
-        effect: {},
-        tradeoff:
-          "Save supplies. This activity will not count as completed.",
-        researchAction: "cancel",
-        cancelReason:
-          "The crew chose to skip this activity."
-      }
+      restOption
     ]
   };
 }
@@ -2081,16 +2083,32 @@ function resolveEvent(idx, token) {
 
   const crewOpinions = window._crewOpinions || [];
 
-  let finalIdx = state.isCommander
-    ? idx
-    : chooseCommanderDecision(ev, crewOpinions, idx);
+  let finalIdx;
+  let decisionType;
 
-  let decisionType = state.isCommander
-    ? "Commander decision"
-    : finalIdx === idx
+  if (ev.experimentId) {
+    // 是否參加研究，由玩家本人決定。
+    finalIdx = idx;
+    decisionType = "Your research choice";
+
+  } else if (state.isCommander) {
+    finalIdx = idx;
+    decisionType = "Commander decision";
+
+  } else {
+    // 一般任務事件保留投票機制。
+    finalIdx = chooseCommanderDecision(
+      ev,
+      crewOpinions,
+      idx
+    );
+
+    decisionType = finalIdx === idx
       ? "Commander accepted your vote"
       : "Commander selected another option";
+  }
 
+  // 保留安全覆核。
   if (!isSafeChoice(ev.options[finalIdx])) {
     const safeIdx = ev.options.findIndex(isSafeChoice);
 
@@ -2102,7 +2120,7 @@ function resolveEvent(idx, token) {
 
   const choice = ev.options[finalIdx];
 
-  // 先鎖定這次互動，防止重複點擊。
+  // 先鎖定，避免重複點擊造成重複計分或扣資源。
   ev.resolved = true;
 
   window._currentEvent = null;
@@ -2117,7 +2135,6 @@ function resolveEvent(idx, token) {
 
   let outcome = "";
 
-  // 扣資源之前，再次檢查研究狀態。
   const staleResearch =
     ev.experimentId &&
     (!exp || exp.status !== "pending");
@@ -2171,7 +2188,7 @@ function resolveEvent(idx, token) {
       addLog(`Result: ${changes.join(", ")}`);
     }
 
-    // 暫時保留原本的輻射模型。
+    // 保留目前的輻射計算。
     if (choice.exposureChange) {
       state.radiationExposure = Math.max(
         0,
@@ -2183,7 +2200,20 @@ function resolveEvent(idx, token) {
     }
 
     if (exp) {
-      if (choice.researchAction === "complete") {
+      if (choice.researchAction === "rest") {
+        // 休息：直接取消本項，不完成、不重試。
+        exp.participation = "rested";
+
+        outcome =
+          "You rested. This research was not completed " +
+          "and earned no completion credit.";
+
+        cancelExperiment(
+          exp.id,
+          "Player chose to rest instead of doing this activity."
+        );
+
+      } else if (choice.researchAction === "complete") {
         completeExperiment(
           exp.id,
           choice.researchResult
@@ -2240,19 +2270,19 @@ function resolveEvent(idx, token) {
 
   addLog(
     `${escapeReportText(ev.title)} — ` +
-    `${state.isCommander ? "My decision" : "My vote"}: ` +
+    `${ev.experimentId || state.isCommander ? "My decision" : "My vote"}: ` +
     escapeReportText(ev.options[idx].text),
     false,
     "Decision"
   );
-  
+
   addLog(
     `Final choice: ${escapeReportText(choice.text)} ` +
     `(${escapeReportText(decisionType)})`,
     false,
     "Decision"
   );
-  
+
   if (outcome) {
     addLog(
       `Outcome: ${escapeReportText(outcome)}`,
@@ -2266,14 +2296,13 @@ function resolveEvent(idx, token) {
 
   if (!checkMissionResources()) return;
 
-  // 先讓玩家閱讀結果，再處理下一張卡。
   showReadyPrompt(
     "Decision recorded",
     outcome
   );
 }
 
-function endMission(success, reason = "") function endMission(success, reason = "") {
+function endMission(success, reason = ""){
   if (!state.running) return;
 
   syncExperimentCounts();
