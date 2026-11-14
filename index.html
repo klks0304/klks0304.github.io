@@ -294,13 +294,21 @@ function updateProgress() {
   document.getElementById('mission-progress').textContent = `Experiments: ${state.experimentsDone} / ${state.maxExperiments}`;
 }
 
-  function tick() {
+function tick() {
   if (state.paused || !state.running) return;
-  for (let i = 0; i < state.speed; i++) { advanceOneSol(); if (!state.running) break; }
-  document.getElementById('sol-display').textContent = `Sol ${state.sol}`;
+
+  for (let i = 0; i < state.speed; i++) {
+    if (state.paused || !state.running) break;
+
+    advanceOneSol();
+  }
+
+  document.getElementById('sol-display').textContent =
+    `Sol ${state.sol}`;
+
   renderBars();
 }
-
+  
 function advanceOneSol() {
   state.sol++;
   state.resources.oxygen = Math.max(0, state.resources.oxygen - 1.3);
@@ -609,7 +617,9 @@ function getOSDRDecisionEvent() {
     return {
       id: "osdr_experiment",
       title: `OSDR Experiment: ${exp.name}`,
-      desc: `${exp.desc}. Resource constraints require a decision.`,
+      desc:
+            `The crew is conducting a ${exp.name} experiment. ` +
+            `Limited resources require a decision.`,,
       fact: `<a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">NASA OSDR Biology Studies</a>`,
       options: [
         { text: "Prioritize full data collection", effect: { power: -3, morale: 2 }, tradeoff: "Maximize science return", isExperiment: true },
