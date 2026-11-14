@@ -557,8 +557,6 @@ function getEventPool() {
   });
 
 
-}
-
   if (state.stage === 5) {
     pool.push({
       id: "meteor", title: "Meteoroid Strike",
@@ -600,7 +598,7 @@ function getEventPool() {
         followUp: ["Cookie crumbs later found in a vent."]
       }
     );
-}
+  }
   pool.push({
   id: "radiation_check",
   title: "Elevated Radiation Alert",
@@ -658,6 +656,7 @@ const osdrExperiments = [
     success: 'Completed a very challenging radiation biology experiment! You were excellent today. <a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">View report on OSDR</a>' 
   }
 ];
+
 
 // Call this in advanceOneSol() for daily reports (no decision needed)
 function tryOSDRDailyReport() {
