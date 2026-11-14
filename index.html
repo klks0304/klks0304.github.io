@@ -727,28 +727,27 @@ function getEventPool() {
     desc: "Radiation levels are higher than expected.",
     fact: 'Real ISS radiation measurements: <a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank">RadLab</a>',
     options: [
-    {
-      text: "Prepare the radiation shelter",
-      effect: { shield: 5, power: -5 },
-      exposure: 1,
-      tradeoff: "Improve protection, use electricity"
-    },
-    {
-      text: "Cancel outdoor activities",
-      effect: { morale: -2 },
-      exposure: 3,
-      tradeoff: "Reduce exposure, delay activities"
-    },
-    {
-      text: "Continue as planned",
-      effect: { morale: 1 },
-      exposure: 8,
-      tradeoff: "Keep working, accept greater exposure"
-    }
-  ]
+      {
+        text: "Prepare the radiation shelter",
+        effect: { shield: 5, power: -5 },
+        exposure: 1,
+        tradeoff: "Improve protection, use electricity"
+      },
+      {
+        text: "Cancel outdoor activities",
+        effect: { morale: -2 },
+        exposure: 3,
+        tradeoff: "Reduce exposure, delay activities"
+      },
+      {
+        text: "Continue as planned",
+        effect: { morale: 1 },
+        exposure: 8,
+        tradeoff: "Keep working, accept greater exposure"
+      }
+    ]
   }); 
-    
-    return pool;
+  return pool;
 }
 
 // OSDR-inspired experiment content
