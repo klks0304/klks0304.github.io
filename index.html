@@ -74,8 +74,8 @@
         <div>
           <button class="secondary" onclick="togglePause()">⏸ Pause</button>
           <button class="secondary" onclick="setSpeed(1)">1×</button>
+          <button class="secondary" onclick="setSpeed(2)">2×</button>
           <button class="secondary" onclick="setSpeed(4)">4×</button>
-          <button class="secondary" onclick="setSpeed(8)">8×</button>
         </div>
       </div>
       <p id="player-info" style="margin:8px 0 0;"></p>
@@ -1042,6 +1042,21 @@ function resolveEvent(idx) {
         state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
       }
     }
+  }
+    // 把資源變化寫進 Log
+  if (choice.effect) {
+    const changes = Object.entries(choice.effect)
+      .map(([k, v]) => {
+        const label = k === 'oxygen' ? 'O₂' : 
+                      k === 'power' ? 'Power' : 
+                      k === 'shield' ? 'Shield' : 
+                      k === 'morale' ? 'Morale' : 
+                      k === 'water' ? 'Water' : 
+                      k === 'food' ? 'Food' : k;
+        return `${label} ${v > 0 ? '+' : ''}${v}`;
+      })
+      .join(', ');
+    addLog(`Result: ${changes}`);
   }
 
   // Apply exposure change if present
