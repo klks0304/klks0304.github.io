@@ -569,7 +569,7 @@ if (
     { text: "Limit EVA", effect: { shield: 3, morale: -2 }, tradeoff: "Reduce exposure" },
     { text: "Continue as planned", effect: { shield: -6 }, tradeoff: "Accept higher dose" }
   ]
-});
+}); 
   return pool;
 }
 
@@ -619,7 +619,7 @@ function getOSDRDecisionEvent() {
       title: `OSDR Experiment: ${exp.name}`,
       desc:
             `The crew is conducting a ${exp.name} experiment. ` +
-            `Limited resources require a decision.`,,
+            `Limited resources require a decision.`,
       fact: `<a href="https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study" target="_blank">NASA OSDR Biology Studies</a>`,
       options: [
         { text: "Prioritize full data collection", effect: { power: -3, morale: 2 }, tradeoff: "Maximize science return", isExperiment: true },
