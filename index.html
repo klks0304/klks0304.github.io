@@ -230,7 +230,16 @@ const state = {
     
     // 本次任務的唯一研究清單
     missionExperiments: [],
+
+    // 第二批：活動佇列，一次只顯示一張卡片
+    missionQueue: [],
+    waitingForReady: false,
+    processingQueue: false,
     
+    // 防止重複點擊舊按鈕
+    interactionSerial: 0,
+    activeInteractionToken: null,
+  
     // 達到 60% 所需完成數
     minimumExperiments: 0,
   
@@ -346,27 +355,37 @@ function setEventStatus(mode, title, contentHtml) {
 }
 
 function showReadyPrompt(question, message) {
+  if (
+    !state.running ||
+    window._currentEvent ||
+    state.waitingForReady
+  ) return;
+
   state.paused = true;
+  state.waitingForReady = true;
 
-  const area = document.getElementById('event-area');
-  const titleEl = document.getElementById('status-title');
-  const contentEl = document.getElementById('event-content');
+  const token = ++state.interactionSerial;
+  state.activeInteractionToken = token;
 
-  area.classList.remove('nominal', 'decision');
-  area.classList.add('decision'); // 用 decision 樣式讓它更醒目
-
-  titleEl.textContent = question;
-  contentEl.innerHTML = `
+  setEventStatus("decision", question, `
     <p>${message}</p>
-    <button onclick="playerIsReady()" style="margin-top:12px; font-size:1.1rem;">
-      Ready!
+    <button onclick="playerIsReady(${token})">
+      Continue
     </button>
-  `;
+  `);
 }
 
-function playerIsReady() {
-  state.paused = false;
-  setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
+function playerIsReady(token) {
+  if (
+    !state.running ||
+    !state.waitingForReady ||
+    token !== state.activeInteractionToken
+  ) return;
+
+  state.waitingForReady = false;
+  state.activeInteractionToken = null;
+
+  processMissionQueue();
 }
 
 function startBirth() {
@@ -443,20 +462,50 @@ function startBirth() {
 }
 
 async function startMission() {
-  document.getElementById('birth-result').classList.add('hidden');
-  document.getElementById('game-screen').classList.remove('hidden');
-  document.getElementById('player-info').textContent = `${state.profession.name} · ${state.location.name}`;
-  updateStage(); 
-  renderBars(); 
-  renderFocusButtons(); 
+  if (state.running || !state.location) return;
+
+  state.missionQueue = [];
+  state.waitingForReady = false;
+  state.processingQueue = false;
+  state.paused = false;
+  state.activeInteractionToken = null;
+
+  window._currentEvent = null;
+  window._crewOpinions = null;
+
+  document.getElementById("birth-result")
+    .classList.add("hidden");
+
+  document.getElementById("game-screen")
+    .classList.remove("hidden");
+
+  document.getElementById("player-info").textContent =
+    `${state.profession.name} · ${state.location.name}`;
+
+  updateStage();
+  renderBars();
+  renderFocusButtons();
   updateProgress();
-  
-  addLog("Mission launch. Checking NASA space weather data...");
-  addLog(`Sol 0: Mission launched toward ${state.location.name}. Estimated total time: ${state.expectedTotalDays} sols.`, true);
-  
+
+  addLog(
+    "Mission launched. Checking NASA space weather data..."
+  );
+
+  addLog(
+    `Destination: ${state.location.name}. ` +
+    `Planned time: ${state.expectedTotalDays} sols.`,
+    true
+  );
+
   checkDONKI();
   fetchAPOD();
-  setEventStatus('nominal', 'All systems nominal', 'No immediate action required.');
+
+  setEventStatus(
+    "nominal",
+    "All systems nominal",
+    "No immediate action required."
+  );
+
   state.running = true;
   state.interval = setInterval(tick, 1000);
 }
@@ -488,15 +537,197 @@ function updateProgress() {
     `Remaining: ${pending} · Cancelled: ${cancelled}`;
 }
 
+// ---------- 研究排程與活動佇列 ----------
+
+function getResearchPhase() {
+  if (state.stage === 1) return "outbound";
+
+  if (state.stage >= 2 && state.stage <= 4) {
+    return "destination";
+  }
+
+  if (state.stage === 5) return "return";
+
+  return null;
+}
+
+function getResearchDeadline(exp) {
+  if (exp.phase === "outbound") {
+    return state.stageDays.arrival - 1;
+  }
+
+  if (exp.phase === "destination") {
+    return state.stageDays.return - 1;
+  }
+
+  return state.stageDays.end - 1;
+}
+
+function cancelExperiment(id, reason) {
+  const exp = state.missionExperiments.find(
+    item => item.id === id
+  );
+
+  if (!exp || exp.status !== "pending") return false;
+
+  exp.status = "cancelled";
+  exp.cancelledDay = state.sol;
+  exp.cancelReason = reason;
+
+  updateProgress();
+
+  addLog(
+    `Research cancelled: ${exp.name}. ${reason}`,
+    true
+  );
+
+  return true;
+}
+
+function getMissingResearchResources(exp) {
+  // 基礎研究使用預留器材，不受挑戰研究門檻限制。
+  if (exp.category === "basic") return [];
+
+  return Object.entries(exp.requirements || {})
+    .filter(([key, minimum]) =>
+      (state.resources[key] ?? 0) < minimum
+    )
+    .map(([key, minimum]) =>
+      `${key}: need ${minimum}, ` +
+      `have ${Math.floor(state.resources[key] ?? 0)}`
+    );
+}
+
+function queueDueResearch() {
+  const phase = getResearchPhase();
+
+  for (const exp of state.missionExperiments) {
+    if (exp.status !== "pending") continue;
+
+    if (state.sol > getResearchDeadline(exp)) {
+      cancelExperiment(
+        exp.id,
+        "The time window for this activity has closed."
+      );
+      continue;
+    }
+
+    if (
+      exp.phase !== phase ||
+      exp.scheduledDay > state.sol ||
+      (exp.nextAttemptDay ?? exp.scheduledDay) > state.sol ||
+      exp.lastOfferedDay === state.sol
+    ) continue;
+
+    const alreadyQueued = state.missionQueue.some(
+      item =>
+        item.kind === "research" &&
+        item.experimentId === exp.id
+    );
+
+    if (alreadyQueued) continue;
+
+    state.missionQueue.push({
+      kind: "research",
+      experimentId: exp.id
+    });
+  }
+}
+
+function processMissionQueue() {
+  if (
+    !state.running ||
+    state.processingQueue ||
+    state.waitingForReady ||
+    window._currentEvent
+  ) return;
+
+  state.processingQueue = true;
+
+  try {
+    while (state.missionQueue.length && state.running) {
+      const item = state.missionQueue.shift();
+
+      if (item.kind === "milestone") {
+        showReadyPrompt(item.title, item.message);
+        return;
+      }
+
+      if (item.kind === "research") {
+        const exp = state.missionExperiments.find(
+          e => e.id === item.experimentId
+        );
+
+        if (!exp || exp.status !== "pending") continue;
+
+        if (
+          exp.phase !== getResearchPhase() ||
+          state.sol > getResearchDeadline(exp)
+        ) {
+          cancelExperiment(
+            exp.id,
+            "The time window for this activity has closed."
+          );
+          continue;
+        }
+
+        const ev = getOSDRDecisionEvent(exp.id);
+        if (!ev) continue;
+
+        exp.lastOfferedDay = state.sol;
+
+        showEvent(ev);
+        return;
+      }
+
+      if (item.kind === "radiation") {
+        showHighExposureAlert();
+        return;
+      }
+
+      if (item.kind === "random") {
+        // 等研究處理完，再根據當時狀態建立隨機事件。
+        triggerRandomEvent();
+
+        if (window._currentEvent) return;
+      }
+    }
+
+    if (state.running) {
+      state.paused = false;
+
+      setEventStatus(
+        "nominal",
+        "All systems nominal",
+        "Ready for the next mission day."
+      );
+    }
+  } finally {
+    state.processingQueue = false;
+  }
+}
+
+function checkMissionResources() {
+  for (const [key, value] of Object.entries(state.resources)) {
+    if (!Number.isFinite(value) || value <= 0) {
+      endMission(
+        false,
+        `Critical system “${key}” collapsed.`
+      );
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function tick() {
-  if (state.paused || !state.running) return;
+  if (!state.running || state.paused) return;
 
   for (let i = 0; i < state.speed; i++) {
-    if (state.paused || !state.running) break;
+    if (!state.running || state.paused) break;
 
     advanceOneSol();
-
-    if (state.paused || !state.running) break;
   }
 
   document.getElementById("sol-display").textContent =
@@ -504,112 +735,211 @@ function tick() {
 
   renderBars();
 }
-  
+
 function advanceOneSol() {
-  state.sol++;
-  state.resources.oxygen = Math.max(0, state.resources.oxygen - 1.3);
-  state.resources.power  = Math.max(0, state.resources.power  - 1.0);
-  state.resources.food   = Math.max(0, state.resources.food   - 1.1);
-  state.resources.water  = Math.max(0, state.resources.water  - 0.9);
-  state.resources.shield = Math.max(0, state.resources.shield - 0.2);
-  state.resources.morale = Math.max(0, state.resources.morale - 0.15);
-
-  // Background radiation exposure (no bar shown)
-  const protection = state.resources.shield / 100;
-  const dailyExposure = 0.55 * (1 - protection);
-  state.radiationExposure = Math.min(100, state.radiationExposure + dailyExposure);
-
-  // Trigger kid-friendly alert when exposure gets high
-  if (!state.highExposureAlertShown && state.radiationExposure >= 72 && Math.random() < 0.45) {
-    state.highExposureAlertShown = true;
-    showHighExposureAlert();
-    return; // pause the day so the player can decide
-  }
-  
-  if (state.focus) {
-    const f = focuses.find(x => x.id === state.focus);
-    if (f) for (const [k, v] of Object.entries(f.effect)) 
-      state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
-  }
+  if (
+    !state.running ||
+    state.paused ||
+    state.waitingForReady ||
+    window._currentEvent ||
+    state.missionQueue.length
+  ) return;
 
   const sd = state.stageDays;
   if (!sd) return;
 
+  state.sol++;
+
+  const dailyCosts = {
+    oxygen: 1.3,
+    power: 1,
+    food: 1.1,
+    water: 0.9,
+    shield: 0.2,
+    morale: 0.15
+  };
+
+  for (const [key, cost] of Object.entries(dailyCosts)) {
+    state.resources[key] = Math.max(
+      0,
+      state.resources[key] - cost
+    );
+  }
+
+  const protection = state.resources.shield / 100;
+
+  state.radiationExposure = Math.min(
+    100,
+    state.radiationExposure + 0.55 * (1 - protection)
+  );
+
+  if (state.focus) {
+    const focus = focuses.find(
+      f => f.id === state.focus
+    );
+
+    if (focus) {
+      for (const [key, value] of Object.entries(focus.effect)) {
+        state.resources[key] = Math.min(
+          100,
+          Math.max(0, state.resources[key] + value)
+        );
+      }
+    }
+  }
+
+  // 資源已耗盡時，不能先宣告返航成功或發放研究成果。
+  if (!checkMissionResources()) return;
+
   if (state.stage === 1 && state.sol >= sd.arrival) {
     state.stage = 2;
-    updateStage();
-    addLog(`Sol ${state.sol}: Arrived at ${state.location.name}! Base setup begins.`, true);
-    addLog(`Daily Report: We made it! Time to set up and prepare for science.`, true);
-    showReadyPrompt("Ready to arrive??", "We have arrived! Get ready to set up the base.");
-    return;
+
+    addLog(
+      `Arrived at ${state.location.name}. Setup begins.`,
+      true
+    );
+
+    state.missionQueue.push({
+      kind: "milestone",
+      title: "We have arrived!",
+      message: state.location.type === "station"
+        ? "Docking is complete. Let's prepare the station research."
+        : "Landing is complete. Let's prepare the base."
+    });
   }
-  
+
   if (state.stage === 2 && state.sol >= sd.survival) {
     state.stage = 3;
-    updateStage();
-    addLog(`Sol ${state.sol}: Base setup complete. Survival phase begins.`, true);
+
+    addLog(
+      "Base setup complete. Survival systems are ready.",
+      true
+    );
   }
-  
+
   if (state.stage === 3 && state.sol >= sd.science) {
     state.stage = 4;
-    updateStage();
-    addLog(`Sol ${state.sol}: Science exploration phase starts.`, true);
-    showReadyPrompt("Are you ready to do science?", "Time to start experiments!");
-    return;
+
+    addLog("Destination research begins.", true);
+
+    state.missionQueue.push({
+      kind: "milestone",
+      title: "Ready to do science?",
+      message: "Your research activities are ready. Let's explore!"
+    });
   }
-  
+
   if (state.stage === 4 && state.sol >= sd.return) {
-      state.stage = 5;
-      updateStage();
-      addLog(`Sol ${state.sol}: Science complete. Return journey begins!`, true);
-      showReadyPrompt("Are you ready to go home?", "The crew is heading back to Earth.");
-      return;
-    }
-  
+    state.stage = 5;
+
+    addLog(
+      "The destination research period is over. Return journey begins.",
+      true
+    );
+
+    state.missionQueue.push({
+      kind: "milestone",
+      title: "Ready to go home?",
+      message:
+        "The crew is heading home. Return-journey research comes next."
+    });
+  }
+
   if (state.stage === 5 && state.sol >= sd.end) {
     state.stage = 6;
     updateStage();
-    addLog(`Sol ${state.sol}: Successfully returned to Earth!`, true);
-    addLog(`Daily Report: The crew is back home. Total mission time: ${state.sol} sols.`, true);
-    state.paused = true;
+
+    // 關閉過期研究，不補發完成數。
+    queueDueResearch();
+
+    addLog("Successfully returned to Earth!", true);
+
     endMission(true);
+    return;
   }
-  
+
+  updateStage();
+
+  document.getElementById("sol-display").textContent =
+    `Sol ${state.sol}`;
+
+  renderBars();
+
+  // 順序：固定里程碑 → 排定研究 → 意外事件。
+  queueDueResearch();
+
+  if (
+    !state.highExposureAlertShown &&
+    state.radiationExposure >= 72 &&
+    Math.random() < 0.45
+  ) {
+    state.highExposureAlertShown = true;
+
+    state.missionQueue.push({
+      kind: "radiation"
+    });
+  }
+
+  let chance = 0.14;
+
+  // 暫時保留目前 DONKI 對隨機事件機率的設定。
+  if (state.donki && state.donki.length > 0) {
+    chance += Math.min(
+      0.15,
+      state.donki.length * 0.03
+    );
+  }
+
+  if (
+    state.stage === 1 &&
+    state.humorousEventsTriggered < 2
+  ) {
+    chance = 0.28;
+  }
+
+  if (Math.random() < chance) {
+    state.missionQueue.push({
+      kind: "random"
+    });
+  }
+
+  // 保留原本的額外學習內容。
   if (Math.random() < 0.35) {
     if (state.apod && Math.random() < 0.4) {
-      addLog(`Daily Report: NASA APOD — ${state.apod.title} <a href="${state.apod.url}" target="_blank">View</a>`, true);
+      addLog(
+        `NASA APOD: ${state.apod.title} ` +
+        `<a href="${state.apod.url}" target="_blank">View</a>`,
+        true
+      );
     } else {
-      addLog("Daily Report: Systems nominal. Science data being logged.", true);
+      addLog(
+        "Daily Report: Mission systems checked.",
+        true
+      );
     }
   }
 
-  tryOSDRDailyReport();
   tryAstronautNarrative();
-  
-  if (state.pendingFollowUps.length && Math.random() < 0.3) 
-    addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
 
-  let chance = 0.14;
-  // DONKI 資料影響太陽風暴相關事件機率
-  if (state.donki && state.donki.length > 0) {
-    chance += Math.min(0.15, state.donki.length * 0.03);
+  if (
+    state.pendingFollowUps.length &&
+    Math.random() < 0.3
+  ) {
+    addLog(
+      "Follow-up: " + state.pendingFollowUps.shift(),
+      true
+    );
   }
-  if (state.stage === 1 && state.humorousEventsTriggered < 2) chance = 0.28;
-  if (Math.random() < chance) triggerRandomEvent();
 
   if (Math.random() < 0.15) {
     const narrative = getDONKINarrative();
+
     if (narrative) {
       addLog(`${narrative.title}: ${narrative.text}`);
     }
   }
-      
-  for (const [k, v] of Object.entries(state.resources)) {
-    if (v <= 0) { 
-      endMission(false, `Critical system “${k}” collapsed.`); 
-      return; 
-    }
-  }
+
+  processMissionQueue();
 }
 
 function getDONKINarrative() {
@@ -674,7 +1004,12 @@ function renderFocusButtons() {
   
 function chooseFocus(id) { state.focus = id; addLog(`Focus: ${focuses.find(x=>x.id===id).name}`); renderFocusButtons(); }
 function togglePause() {
-  if (window._currentEvent) return;
+  if (
+    !state.running ||
+    window._currentEvent ||
+    state.waitingForReady ||
+    state.missionQueue.length
+  ) return;
 
   state.paused = !state.paused;
 }
@@ -757,12 +1092,6 @@ function getEventPool() {
   const loc = state.location;
   const locType = loc?.type || "moon";
   const stage = state.stage;
-
-  // OSDR decision event (only during science phases)
-  if (stage >= 2 && stage < 5) {
-    const osdrEvent = getOSDRDecisionEvent();
-    if (osdrEvent) pool.push(osdrEvent);
-  }
 
   // ===== Mars-specific =====
   if (locType === "mars" && stage >= 2 && stage < 5) {
@@ -1284,65 +1613,177 @@ function tryOSDRDailyReport() {
 }
 
 // Optional: OSDR-related decision event (add inside getEventPool())
-function getOSDRDecisionEvent() {
-  // 第一批暫時保留既有的觸發階段和機率。
-  if (state.stage < 3 || state.stage >= 5) return null;
-  if (Math.random() >= 0.18) return null;
-
-  const candidates = state.missionExperiments.filter(
-    exp =>
-      exp.status === "pending" &&
-      exp.phase === "destination" &&
-      exp.scheduledDay <= state.sol &&
-      !state.usedEvents.has(`research_${exp.id}`)
+function getOSDRDecisionEvent(experimentId) {
+  const exp = state.missionExperiments.find(
+    item => item.id === experimentId
   );
 
-  if (!candidates.length) return null;
+  if (!exp || exp.status !== "pending") return null;
 
-  const exp = candidates[0];
+  const fact =
+    "Game activity inspired by real research. " +
+    `<a href="${exp.source.url}" target="_blank" ` +
+    `rel="noopener noreferrer">${exp.source.label}</a>`;
 
-  return {
+  const base = {
     id: `research_${exp.id}`,
     experimentId: exp.id,
     title: `Research: ${exp.name}`,
     desc: exp.description,
+    fact
+  };
 
-    fact:
-      `Game activity inspired by real research. ` +
-      `<a href="${exp.source.url}" target="_blank" ` +
-      `rel="noopener noreferrer">${exp.source.label}</a>`,
+  // 基礎研究：使用預留器材，不提供取消選項。
+  if (exp.category === "basic") {
+    return {
+      ...base,
+      options: [
+        {
+          text: "Record the observations",
+          effect: {},
+          tradeoff:
+            "Basic research uses the mission's reserved research kit.",
+          researchAction: "complete",
+          researchResult:
+            "Basic observations recorded with the reserved research kit."
+        }
+      ]
+    };
+  }
+
+  // 挑戰研究：資源不足時強制取消。
+  const missing = getMissingResearchResources(exp);
+
+  if (missing.length) {
+    return {
+      ...base,
+
+      desc:
+        `${exp.description} ` +
+        "The equipment cannot run with the supplies available.",
+
+      options: [
+        {
+          text: "Cancel this activity to protect the crew",
+          effect: {},
+          tradeoff: missing.join("; "),
+          researchAction: "cancel",
+          cancelReason:
+            `Insufficient resources: ${missing.join("; ")}.`
+        }
+      ]
+    };
+  }
+
+  const requirements = Object.entries(exp.requirements || {})
+    .map(([key, value]) => `${key} at least ${value}`)
+    .join(", ");
+
+  const fullEffect = {
+    power: -3,
+    morale: 2
+  };
+
+  const basicEffect = {
+    power: -1,
+    morale: 1
+  };
+
+  if (exp.requirements.water) {
+    fullEffect.water = -2;
+    basicEffect.water = -1;
+  }
+
+  const canDelay =
+    state.sol < getResearchDeadline(exp);
+
+  return {
+    ...base,
+
+    desc:
+      `${exp.description} Equipment needs: ` +
+      `${requirements || "normal supplies"}.`,
 
     options: [
       {
         text: "Collect the full data",
-        effect: { power: -3, morale: 2 },
-        tradeoff: "Use more power for detailed observations",
-        isExperiment: true,
+        effect: fullEffect,
+        tradeoff:
+          "Power -3, morale +2" +
+          (exp.requirements.water ? ", water -2" : ""),
+        researchAction: "complete",
         researchResult: "Full observations recorded."
       },
       {
         text: "Collect the basic data",
-        effect: { power: -1, morale: 1 },
-        tradeoff: "Use less power and record the basic observations",
-        isExperiment: true,
+        effect: basicEffect,
+        tradeoff:
+          "Power -1, morale +1" +
+          (exp.requirements.water ? ", water -1" : ""),
+        researchAction: "complete",
         researchResult: "Basic observations recorded."
       },
+
+      ...(canDelay
+        ? [
+            {
+              text: "Try again next mission day",
+              effect: {},
+              tradeoff:
+                "No result yet. Supplies will be checked again tomorrow.",
+              researchAction: "postpone"
+            }
+          ]
+        : []),
+
       {
-        text: "Postpone this activity",
-        effect: { morale: -2 },
-        tradeoff: "Keep it unfinished for now"
+        text: "Skip this activity",
+        effect: {},
+        tradeoff:
+          "Save supplies. This activity will not count as completed.",
+        researchAction: "cancel",
+        cancelReason:
+          "The crew chose to skip this activity."
       }
     ]
   };
 }
   
 function triggerRandomEvent() {
-  let pool = getEventPool().filter(e => !state.usedEvents.has(e.id));
-  if (pool.length === 0) { state.usedEvents.clear(); pool = getEventPool(); }
+  if (
+    !state.running ||
+    state.waitingForReady ||
+    window._currentEvent
+  ) return;
+
+  let pool = getEventPool().filter(
+    ev => !ev.experimentId
+  );
+
+  const unused = pool.filter(
+    ev => !state.usedEvents.has(ev.id)
+  );
+
+  if (unused.length) {
+    pool = unused;
+  } else {
+    // 只重置隨機事件使用紀錄。
+    // 研究的 completed / cancelled 狀態不會被重置。
+    state.usedEvents.clear();
+  }
+
   if (!pool.length) return;
-  const ev = pool[Math.floor(Math.random() * pool.length)];
+
+  const ev = pool[
+    Math.floor(Math.random() * pool.length)
+  ];
+
   state.usedEvents.add(ev.id);
-  if (ev.humorous) state.humorousEventsTriggered++;
+
+  if (ev.humorous) {
+    state.humorousEventsTriggered++;
+  }
+
   showEvent(ev);
 }
 
@@ -1413,58 +1854,113 @@ function showHighExposureAlert() {
 }
   
 function showEvent(ev) {
+  if (
+    !state.running ||
+    state.waitingForReady ||
+    window._currentEvent
+  ) return;
+
   state.paused = true;
-  const crewOpinions = state.crew.map(c => {
+
+  const token = ++state.interactionSerial;
+  state.activeInteractionToken = token;
+
+  const crewOpinions = state.crew.map(crew => {
     let preferred = 0;
-    if (c.bias === "power") preferred = ev.options.findIndex(o => (o.effect.power || 0) > -5);
-    else if (c.bias === "safety") preferred = ev.options.findIndex(o => (o.effect.shield || 0) > 3);
-    else preferred = Math.floor(Math.random() * ev.options.length);
+
+    if (crew.bias === "power") {
+      preferred = ev.options.findIndex(
+        opt => (opt.effect?.power || 0) > -5
+      );
+    } else if (crew.bias === "safety") {
+      preferred = ev.options.findIndex(
+        opt => (opt.effect?.shield || 0) > 3
+      );
+    } else {
+      preferred = Math.floor(
+        Math.random() * ev.options.length
+      );
+    }
+
     if (preferred < 0) preferred = 0;
-    return { role: c.role, preferred, reason: `${c.role} prioritizes ${c.priority}.` };
+
+    return {
+      role: crew.role,
+      preferred,
+      reason:
+        `${crew.role} prioritizes ${crew.priority}.`
+    };
   });
 
-  let html = `<p>${ev.desc}</p>`;
-  if (ev.fact) html += `<div class="fact">${ev.fact}</div>`;
-  html += `<h4>Crew Opinions</h4>`;
-  crewOpinions.forEach(o => html += `<div class="crew-vote">${o.reason} Prefers option ${o.preferred + 1}.</div>`);
+  let html = `
+    <h3>${ev.title}</h3>
+    <p>${ev.desc}</p>
+  `;
+
+  if (ev.fact) {
+    html += `<div class="fact">${ev.fact}</div>`;
+  }
+
+  html += "<h4>Crew Opinions</h4>";
+
+  for (const opinion of crewOpinions) {
+    html += `
+      <div class="crew-vote">
+        ${opinion.reason}
+        Prefers option ${opinion.preferred + 1}.
+      </div>
+    `;
+  }
 
   html += state.isCommander
-  ? `<p><strong>You are the Commander. Make the final decision:</strong></p>`
-  : `<p><strong>You are a Crew Member. Cast your vote:</strong></p>`;
-  
-  ev.options.forEach((opt, i) => {
-    html += `<button onclick="resolveEvent(${i})" style="display:block;width:100%;text-align:left;margin:4px 0">${opt.text}<br><small>${opt.tradeoff}</small></button>`;
+    ? "<p><strong>You are the Commander. Make the final decision:</strong></p>"
+    : "<p><strong>You are a Crew Member. Cast your vote:</strong></p>";
+
+  ev.options.forEach((opt, index) => {
+    html += `
+      <button
+        onclick="resolveEvent(${index}, ${token})"
+        style="display:block;width:100%;text-align:left;margin:4px 0"
+      >
+        ${opt.text}<br>
+        <small>${opt.tradeoff}</small>
+      </button>
+    `;
   });
-  setEventStatus('decision', 'Decision Required', html);
+
   window._currentEvent = ev;
   window._crewOpinions = crewOpinions;
+
+  setEventStatus(
+    "decision",
+    "Decision Required",
+    html
+  );
 }
 
-function resolveEvent(idx) {
+function resolveEvent(idx, token) {
   const ev = window._currentEvent;
-  if (!ev || !ev.options[idx]) return;
+
+  if (
+    !state.running ||
+    !ev ||
+    ev.resolved ||
+    !ev.options[idx] ||
+    token !== state.activeInteractionToken
+  ) return;
 
   const crewOpinions = window._crewOpinions || [];
 
-  let finalIdx;
-  let decisionType;
+  let finalIdx = state.isCommander
+    ? idx
+    : chooseCommanderDecision(ev, crewOpinions, idx);
 
-  if (state.isCommander) {
-    finalIdx = idx;
-    decisionType = "Commander decision";
-  } else {
-    finalIdx = chooseCommanderDecision(
-      ev,
-      crewOpinions,
-      idx
-    );
-
-    decisionType = finalIdx === idx
+  let decisionType = state.isCommander
+    ? "Commander decision"
+    : finalIdx === idx
       ? "Commander accepted your vote"
       : "Commander selected another option";
-  }
 
-  // Safety override for both roles.
   if (!isSafeChoice(ev.options[finalIdx])) {
     const safeIdx = ev.options.findIndex(isSafeChoice);
 
@@ -1476,63 +1972,130 @@ function resolveEvent(idx) {
 
   const choice = ev.options[finalIdx];
 
-  // Apply resource effects
-  if (choice.effect) {
-    for (const [k, v] of Object.entries(choice.effect)) {
-      if (state.resources[k] !== undefined) {
-        state.resources[k] = Math.min(100, Math.max(0, state.resources[k] + v));
-      }
-    }
-  }
-    // 把資源變化寫進 Log
-  if (choice.effect) {
-    const changes = Object.entries(choice.effect)
-      .map(([k, v]) => {
-        const label = k === 'oxygen' ? 'O₂' : 
-                      k === 'power' ? 'Power' : 
-                      k === 'shield' ? 'Shield' : 
-                      k === 'morale' ? 'Morale' : 
-                      k === 'water' ? 'Water' : 
-                      k === 'food' ? 'Food' : k;
-        return `${label} ${v > 0 ? '+' : ''}${v}`;
-      })
-      .join(', ');
-    addLog(`Result: ${changes}`);
-  }
+  // 先鎖定這次互動，防止重複點擊。
+  ev.resolved = true;
 
-  // Apply exposure change if present
-  if (choice.exposureChange) {
-    state.radiationExposure = Math.max(0, Math.min(100, state.radiationExposure + choice.exposureChange));
-  }
+  window._currentEvent = null;
+  window._crewOpinions = null;
+  state.activeInteractionToken = null;
 
-  for (const [k, v] of Object.entries(state.resources)) {
-    if (k === "shield") continue;
-  
-    if (v <= 0) {
-      endMission(false, `Critical system “${k}” collapsed.`);
-      return;
-    }
-  }
-
-
-  if (ev.experimentId) {
-    if (choice.isExperiment) {
-      completeExperiment(
-        ev.experimentId,
-        choice.researchResult || "Research observations recorded."
-      );
-    } else {
-      // 延後不計分，也不標記完成。
-      // 移除事件使用標記，讓這項研究之後仍有機會出現。
-      state.usedEvents.delete(ev.id);
-  
-      const exp = state.missionExperiments.find(
+  const exp = ev.experimentId
+    ? state.missionExperiments.find(
         item => item.id === ev.experimentId
+      )
+    : null;
+
+  let outcome = "";
+
+  // 扣資源之前，再次檢查研究狀態。
+  const staleResearch =
+    ev.experimentId &&
+    (!exp || exp.status !== "pending");
+
+  const missing =
+    exp && choice.researchAction === "complete"
+      ? getMissingResearchResources(exp)
+      : [];
+
+  const closed =
+    exp &&
+    (
+      exp.phase !== getResearchPhase() ||
+      state.sol > getResearchDeadline(exp)
+    );
+
+  if (staleResearch) {
+    outcome =
+      "This activity was already handled. " +
+      "No extra credit or supplies used.";
+
+  } else if (closed || missing.length) {
+    outcome = closed
+      ? "The research time window has closed."
+      : `Insufficient resources: ${missing.join("; ")}.`;
+
+    cancelExperiment(exp.id, outcome);
+
+  } else {
+    const changes = [];
+
+    for (const [key, value] of Object.entries(choice.effect || {})) {
+      if (state.resources[key] === undefined) continue;
+
+      const before = state.resources[key];
+
+      state.resources[key] = Math.min(
+        100,
+        Math.max(0, before + value)
       );
-  
-      if (exp && exp.status === "pending") {
-        addLog(`Research postponed: ${exp.name}.`);
+
+      const actual = state.resources[key] - before;
+
+      changes.push(
+        `${key} ${actual > 0 ? "+" : ""}` +
+        `${Number(actual.toFixed(2))}`
+      );
+    }
+
+    if (changes.length) {
+      addLog(`Result: ${changes.join(", ")}`);
+    }
+
+    // 暫時保留原本的輻射模型。
+    if (choice.exposureChange) {
+      state.radiationExposure = Math.max(
+        0,
+        Math.min(
+          100,
+          state.radiationExposure + choice.exposureChange
+        )
+      );
+    }
+
+    if (exp) {
+      if (choice.researchAction === "complete") {
+        completeExperiment(
+          exp.id,
+          choice.researchResult
+        );
+
+        outcome =
+          `${exp.name}: completed. ` +
+          `${choice.researchResult || ""}`;
+
+      } else if (choice.researchAction === "postpone") {
+        if (state.sol < getResearchDeadline(exp)) {
+          exp.nextAttemptDay = state.sol + 1;
+
+          addLog(
+            `Research postponed: ${exp.name}. ` +
+            `Next attempt: Sol ${exp.nextAttemptDay}.`
+          );
+
+          outcome =
+            `${exp.name}: postponed until the next mission day.`;
+
+        } else {
+          outcome =
+            "No research time remains in this phase.";
+
+          cancelExperiment(exp.id, outcome);
+        }
+
+      } else if (choice.researchAction === "cancel") {
+        outcome =
+          choice.cancelReason ||
+          "The crew cancelled this activity.";
+
+        cancelExperiment(exp.id, outcome);
       }
+
+    } else {
+      outcome = `Final decision: ${choice.text}`;
+    }
+
+    if (ev.followUp?.length) {
+      state.pendingFollowUps.push(ev.followUp[0]);
     }
   }
 
@@ -1540,7 +2103,8 @@ function resolveEvent(idx) {
     title: ev.title,
     myChoice: ev.options[idx].text,
     finalChoice: choice.text,
-    commanderDecision: decisionType
+    commanderDecision: decisionType,
+    outcome
   });
 
   addLog(
@@ -1548,29 +2112,35 @@ function resolveEvent(idx) {
     ev.options[idx].text
   );
 
-  addLog(`Final decision: ${choice.text} (${decisionType})`);
-
-  if (ev.followUp) {
-    state.pendingFollowUps.push(ev.followUp[0]);
-  }
+  addLog(
+    `Final decision: ${choice.text} (${decisionType})`
+  );
 
   updateProgress();
   renderBars();
 
-  window._currentEvent = null;
-  window._crewOpinions = null;
+  if (!checkMissionResources()) return;
 
-  setEventStatus(
-    "nominal",
-    "Decision Resolved",
-    `Final decision: ${choice.text}`
+  // 先讓玩家閱讀結果，再處理下一張卡。
+  showReadyPrompt(
+    "Decision recorded",
+    outcome
   );
-
-  state.paused = false;
 }
 
 function endMission(success, reason = "") {
+  if (!state.running) return;
+
   state.running = false;
+  state.paused = true;
+
+  state.missionQueue = [];
+  state.waitingForReady = false;
+  state.activeInteractionToken = null;
+
+  window._currentEvent = null;
+  window._crewOpinions = null;
+
   clearInterval(state.interval);
 
   document.getElementById('game-screen').classList.add('hidden');
