@@ -661,9 +661,6 @@ function getEventPool() {
     });
   }
 
-  return pool;
-}
-
   const stormDesc = (state.donki && state.donki.length > 0)
     ? `Solar particle risk elevated. NASA DONKI recorded ${state.donki.length} SEP event(s) recently.`
     : "Solar particle event approaching.";
@@ -811,7 +808,13 @@ function tryOSDRDailyReport() {
 // Optional: OSDR-related decision event (add inside getEventPool())
 function getOSDRDecisionEvent() {
   if (Math.random() < 0.18 && state.stage >= 3 && !state.usedEvents.has("osdr_experiment")) {
-    const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
+    //const exp = osdrExperiments[Math.floor(Math.random() * osdrExperiments.length)];
+    const list =
+      experimentsByType[state.location.type] || experimentsByType.station;
+    
+    const exp = list[Math.floor(Math.random() * list.length)];
+
+    
     return {
       id: "osdr_experiment",
       title: `OSDR Experiment: ${exp.name}`,
