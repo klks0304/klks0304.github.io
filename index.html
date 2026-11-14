@@ -535,11 +535,29 @@ function renderBars() {
   }).join('');
   
 }
+
 function renderFocusButtons() {
-  document.getElementById('focus-buttons').innerHTML = focuses.map(f =>
-    `<button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')">${f.name}</button>`
-  ).join('');
+  document.getElementById('focus-buttons').innerHTML = focuses.map(f => {
+    // 把 effect 轉成 "+O₂ 3, +Water 2, -Power 2" 這種文字
+    const effectText = Object.entries(f.effect)
+      .map(([k, v]) => {
+        const sign = v > 0 ? '+' : '';
+        const label = k === 'oxygen' ? 'O₂' : 
+                      k === 'power' ? 'Power' : 
+                      k === 'food' ? 'Food' : 
+                      k === 'water' ? 'Water' : 
+                      k === 'shield' ? 'Shield' : 
+                      k === 'morale' ? 'Morale' : k;
+        return `${sign}${label} ${v}`;
+      })
+      .join(', ');
+
+    return `<button class="${state.focus === f.id ? '' : 'secondary'}" onclick="chooseFocus('${f.id}')" title="${effectText}">
+      ${f.name}<br><small>${effectText}</small>
+    </button>`;
+  }).join('');
 }
+  
 function chooseFocus(id) { state.focus = id; addLog(`Focus: ${focuses.find(x=>x.id===id).name}`); renderFocusButtons(); }
 function togglePause() {
   if (window._currentEvent) return;
