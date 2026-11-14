@@ -336,7 +336,10 @@ function advanceOneSol() {
     addLog("Daily Report: " + state.pendingFollowUps.shift(), true);
 
   let chance = 0.14;
-  if (state.solarActivity.active) chance += 0.12;
+  // DONKI 資料影響太陽風暴相關事件機率
+  if (state.donki && state.donki.length > 0) {
+    chance += Math.min(0.15, state.donki.length * 0.03);
+  }
   if (state.stage === 1 && state.humorousEventsTriggered < 2) chance = 0.28;
   if (Math.random() < chance) triggerRandomEvent();
 
@@ -426,8 +429,8 @@ function getEventPool() {
     });
   }
 
-  const stormDesc = state.solarActivity.active
-    ? `Solar particle event risk elevated. NASA DONKI: ${state.solarActivity.info}.`
+  const stormDesc = (state.donki && state.donki.length > 0)
+    ? `Solar particle risk elevated. NASA DONKI recorded ${state.donki.length} SEP event(s) recently.`
     : "Solar particle event approaching.";
   pool.push({
     id: "solar_storm", title: "Solar Storm",
