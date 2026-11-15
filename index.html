@@ -35,6 +35,39 @@
   .quote { font-style: italic; margin: 16px 0; padding: 12px; background: #1e2a44; border-left: 4px solid var(--accent); }
   .daily-report { color: #a5d6a7; font-style: italic; }
   a { color: var(--accent); }
+
+  #astronaut-inspiration {
+  text-align: center;
+  background: #1a2238;
+  padding: 16px;
+  border-radius: 10px;
+  }
+  #astronaut-inspiration img {
+    width: 180px;
+    height: 220px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 2px solid #4fc3f7;
+  }
+  #astronaut-inspiration .name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 6px 0;
+  }
+  #astronaut-inspiration .quote {
+    font-style: italic;
+    font-size: 0.95rem;
+    margin: 8px 0;
+  }
+  #astronaut-inspiration .refs {
+    font-size: 0.8rem;
+    margin-top: 10px;
+    opacity: 0.85;
+  }
+  #astronaut-inspiration .refs a {
+    color: #4fc3f7;
+  }
 </style>
 </head>
 <body>
@@ -76,7 +109,11 @@
 
   <div id="birth-result" class="card hidden">
     <h2>Your Mission Identity</h2>
-    <div id="birth-info"></div>
+    <div class="columns">
+      <div id="birth-info"></div>
+      <div id="astronaut-inspiration">
+      </div>
+    </div>
     <button onclick="startMission()">Confirm and Launch</button>
   </div>
 
@@ -453,6 +490,73 @@ function playerIsReady(token) {
   processMissionQueue();
 }
 
+const inspirationalAstronauts = [
+  {
+    name: "Sally Ride",
+    title: "First American Woman in Space",
+    quote: "Keep interested in science and do well in your math and science classes.",
+    image: "https://images-assets.nasa.gov/image/S85-41007/S85-41007~medium.jpg",
+    imagePage: "https://images.nasa.gov/details-S85-41007",
+    quotePage: "https://www.nasa.gov/image-article/sally-ride/"
+  },
+  {
+    name: "Sunita Williams",
+    title: "ISS Commander & Spacewalker",
+    quote: "The best part of being in space is looking back at Earth.",
+    image: "https://images-assets.nasa.gov/image/jsc2018e057247/jsc2018e057247~medium.jpg",
+    imagePage: "https://images.nasa.gov/",
+    quotePage: "https://www.nasa.gov/astronauts/biographies/sunita-l-williams/"
+  },
+  {
+    name: "Mae Jemison",
+    title: "First African American Woman in Space",
+    quote: "Never limit yourself because of others’ limited imagination.",
+    image: "https://images-assets.nasa.gov/image/S92-40463/S92-40463~medium.jpg",
+    imagePage: "https://images.nasa.gov/details-S92-40463",
+    quotePage: "https://www.nasa.gov/image-article/mae-jemison/"
+  },
+  {
+    name: "Kalpana Chawla",
+    title: "First South Asian American Woman in Space",
+    quote: "This is just something I wanted to do.",
+    image: "https://images-assets.nasa.gov/image/jsc2001e00756/jsc2001e00756~medium.jpg",
+    imagePage: "https://images.nasa.gov/",
+    quotePage: "https://www.nasa.gov/image-article/kalpana-chawla/"
+  },
+  {
+    name: "Ellison Onizuka",
+    title: "First Asian American in Space",
+    quote: "Your vision is not limited by what your eye can see, but by what your mind can imagine.",
+    image: "https://images-assets.nasa.gov/image/S86-25964/S86-25964~medium.jpg",
+    imagePage: "https://images.nasa.gov/details-S86-25964",
+    quotePage: "https://www.nasa.gov/image-article/ellison-onizuka-first-asian-american-space/"
+  },
+  {
+    name: "Guion Bluford",
+    title: "First African American in Space",
+    quote: "I wanted to set the standard and do the best job possible.",
+    image: "https://www.nasa.gov/wp-content/uploads/2023/03/536519main_portrait_full.jpg",
+    imagePage: "https://www.nasa.gov/image-detail/portrait-of-astronaut-guion-bluford/",
+    quotePage: "https://www.nasa.gov/image-article/portrait-of-astronaut-guion-bluford/"
+  },
+  {
+    name: "Peggy Whitson",
+    title: "Most Time in Space (American Woman)",
+    quote: "The more we explore, the more we discover.",
+    image: "https://images-assets.nasa.gov/image/jsc2017e074607/jsc2017e074607~medium.jpg",
+    imagePage: "https://images.nasa.gov/",
+    quotePage: "https://www.nasa.gov/former-astronaut-peggy-whitson/"
+  },
+  {
+    name: "Jessica Meir",
+    title: "Spacewalker",
+    quote: "Believe in yourself and keep working hard.",
+    image: "https://images-assets.nasa.gov/image/jsc2019e045019/jsc2019e045019~medium.jpg",
+    imagePage: "https://images.nasa.gov/",
+    quotePage: "https://www.nasa.gov/astronauts/biographies/jessica-u-meir/"
+  }
+];
+  
 function startBirth() {
   state.profession = professions[
     Math.floor(Math.random() * professions.length)
@@ -468,7 +572,6 @@ function startBirth() {
   state.isCommander =
     Math.random() < state.profession.commanderChance;
 
-  // 產生獨立副本，不直接修改研究定義。
   state.missionExperiments = buildMissionExperiments(
     state.location
   );
@@ -523,6 +626,21 @@ function startBirth() {
     </p>
 
     <p><small>${phaseSummary}</small></p>
+  `;
+
+  const astro = inspirationalAstronauts[
+    Math.floor(Math.random() * inspirationalAstronauts.length)
+  ];
+  
+  document.getElementById("astronaut-inspiration").innerHTML = `
+    <img src="${astro.image}" alt="${astro.name}">
+    <div class="name">${astro.name}</div>
+    <div style="font-size:0.85rem; opacity:0.9;">${astro.title}</div>
+    <div class="quote">“${astro.quote}”</div>
+    <div class="refs">
+      <a href="${astro.imagePage}" target="_blank">Photo</a> · 
+      <a href="${astro.quotePage}" target="_blank">Quote</a>
+    </div>
   `;
 }
 
