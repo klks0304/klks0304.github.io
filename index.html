@@ -37,13 +37,10 @@
   a { color: var(--accent); }
 
   #astronaut-inspiration {
-    <p style="text-align: center; margin: 0 0 8px; font-size: 0.9rem; opacity: 0.9;">
-      See who is cheering you on!
-    </p>
-  text-align: center;
-  background: #1a2238;
-  padding: 16px;
-  border-radius: 10px;
+    text-align: center;
+    background: #1a2238;
+    padding: 16px;
+    border-radius: 10px;
   }
   #astronaut-inspiration img {
     width: 180px;
@@ -154,13 +151,19 @@
 
   <div id="birth-result" class="card hidden">
     <h2>Your Mission Identity</h2>
-    <div class="columns">
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: start;">
+      <!-- 左邊：任務資訊 -->
       <div id="birth-info"></div>
-      <div id="astronaut-inspiration"></div>
-    </div>
-    <button onclick="startMission()">Confirm and Launch</button>
-  </div>
   
+      <!-- 右邊：太空人 -->
+      <div id="astronaut-inspiration" style="text-align: center;">
+        <p style="margin: 0 0 10px; font-size: 0.95rem; opacity: 0.9;">
+          See who is cheering you on!
+        </p>
+      </div>
+    </div>
+    <button onclick="startMission()" style="margin-top: 16px;">Confirm and Launch</button>
+  </div>
   
   <div id="end-screen" class="card hidden">
     <h2 id="end-title"></h2>
@@ -341,8 +344,8 @@ const state = {
   
   profession: null, location: null, isCommander: false,
   resources: { oxygen: 100, power: 85, food: 90, shield: 75, morale: 88, water: 95 },
-  radiationExposure: 0,          // ← 新增
-  highExposureAlertShown: false, // ← 新增（避免一直跳）
+  radiationExposure: 0,         
+  highExposureAlertShown: false, 
   expectedTotalDays: 0,
   stageDays: null,
   log: [],
