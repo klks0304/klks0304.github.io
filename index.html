@@ -1203,13 +1203,58 @@ function getDONKINarrative() {
 }
   
 function renderBars() {
-  const labels = { oxygen: "O₂ / Life Support", power: "Power", food: "Food", shield: "Radiation Protection Condition", morale: "Morale", water: "Water" };
-  document.getElementById('resource-bars').innerHTML = Object.keys(labels).map(k => {
-    const val = Math.round(state.resources[k]);
-    const color = val < 30 ? '#ef5350' : val < 60 ? '#ffa726' : '#66bb6a';
-    return `<div class="bar-wrap"><div class="bar-label"><span>${labels[k]}</span><span>${val}</span></div><div class="bar"><div class="bar-fill" style="width:${val}%;background:${color}"></div></div></div>`;
-  }).join('');
-  
+  const labels = {
+    oxygen: "O₂ / Life Support",
+    power: "Power",
+    food: "Food",
+    shield: "Radiation Protection Condition",
+    morale: "Morale",
+    water: "Water"
+  };
+
+  const descriptions = {
+    oxygen: "Astronauts need oxygen to breathe. Without enough oxygen, the crew cannot survive.",
+    power: "Electricity keeps the spacecraft, life support systems, and equipment running.",
+    food: "Astronauts need food for energy and to stay healthy during their mission.",
+    shield: "Radiation protection helps keep astronauts safe from harmful radiation in space.",
+    morale: "Morale represents how happy and motivated the crew feels during the mission.",
+    water: "Water is essential for drinking, staying healthy, and growing food."
+  };
+
+  document.getElementById('resource-bars').innerHTML =
+    Object.keys(labels).map(k => {
+      const val = Math.round(state.resources[k]);
+      const color = val < 30 ? '#ef5350' : val < 60 ? '#ffa726' : '#66bb6a';
+
+      return `
+        <div class="bar-wrap">
+          <div class="bar-label">
+            <span>
+              <button class="resource-help" type="button"
+                onclick="toggleResourceHelp('${k}')">?</button>
+              ${labels[k]}
+            </span>
+            <span>${val}</span>
+          </div>
+
+          <div class="bar">
+            <div class="bar-fill"
+              style="width:${val}%;background:${color}">
+            </div>
+          </div>
+
+          <div class="resource-description" id="resource-help-${k}" hidden>
+            ${descriptions[k]}
+          </div>
+        </div>
+      `;
+    }).join('');
+}
+
+
+function toggleResourceHelp(key) {
+  const description = document.getElementById(`resource-help-${key}`);
+  description.hidden = !description.hidden;
 }
 
 function renderFocusButtons() {
