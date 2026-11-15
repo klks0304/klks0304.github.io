@@ -2713,34 +2713,144 @@ function resolveEvent(idx, token) {
   );
 }
 
+
 function endMission(success, reason = "") {
   state.running = false;
-  if (state.interval) clearInterval(state.interval);
+  state.paused = true;
+
+  if (state.interval) {
+    clearInterval(state.interval);
+    state.interval = null;
+  }
 
   const gameScreen = document.getElementById("game-screen");
   const endScreen = document.getElementById("end-screen");
-  
-  if (gameScreen) gameScreen.classList.add("hidden");
-  if (endScreen) endScreen.classList.remove("hidden");
-
   const titleEl = document.getElementById("end-title");
   const summaryEl = document.getElementById("end-summary");
 
-  if (titleEl) {
-    titleEl.textContent = success
-      ? "Returned to Earth — Mission Complete"
-      : "Mission Failed";
-  }
+  if (gameScreen) gameScreen.classList.add("hidden");
+  if (endScreen) endScreen.classList.remove("hidden");
 
-  if (summaryEl) {
-    summaryEl.innerHTML = `
-      <p>${success ? "You successfully returned to Earth!" : "Mission ended: " + (reason || "Unknown reason")}</p>
-      <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
-      <p><strong>Time:</strong> ${state.sol} sols</p>
-      <p><strong>Research:</strong> ${state.experimentsDone || 0} / ${state.maxExperiments || 0}</p>
-    `;
-  }
+  if (!titleEl || !summaryEl) return;
+
+  titleEl.textContent = success
+    ? "🌍 Returned to Earth — Mission Complete!"
+    : "🚨 Mission Failed";
+
+  const completed = state.missionExperiments.filter(
+    exp => exp.status === "completed"
+  );
+
+  const total = state.missionExperiments.length;
+  const researchRate = total > 0
+    ? Math.round(completed.length / total * 100)
+    : 0;
+
+  const quotes = success ? successQuotes : failureQuotes;
+  const selectedQuote = quotes[
+    Math.floor(Math.random() * quotes.length)
+  ];
+
+  const safe = value => String(value ?? "").replace(
+    /[&<>"']/g,
+    ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[ch]
+  );
+
+  const researchList = completed.length
+    ? completed.map(exp => `
+        <li>${safe(exp.name)}</li>
+      `).join("")
+    : "<li>No research completed.</li>";
+
+  const importantDecisions = state.decisions
+    .filter(d => !state.missionExperiments.some(
+      exp => exp.name === d.title
+    ))
+    .slice(-5);
+
+  const decisionList = importantDecisions.length
+    ? importantDecisions.map(d => `
+        <li>
+          <strong>Sol ${safe(d.day)}:
+          ${safe(d.title)}</strong>
+          <div>${safe(d.finalChoice)}</div>
+        </li>
+      `).join("")
+    : "<li>No major decisions recorded.</li>";
+
+  const resources = state.resources;
+
+  const resourceList = Object.entries(resources)
+    .map(([key, value]) => `
+      <div style="margin: 6px 0;">
+        <strong>${safe(key)}:</strong>
+        ${Number(value).toFixed(0)}%
+      </div>
+    `).join("");
+
+  summaryEl.innerHTML = `
+    <p>
+      ${success
+        ? "Congratulations! You returned safely to Earth."
+        : "Your mission ended before a safe return."}
+    </p>
+
+    ${!success ? `
+      <p><strong>Reason:</strong> ${safe(reason)}</p>
+    ` : ""}
+
+    <h3>🚀 Mission Overview</h3>
+    <p><strong>Destination:</strong>
+      ${safe(state.location?.name || "Unknown")}</p>
+    <p><strong>Role:</strong>
+      ${state.isCommander ? "Commander" : "Crew Member"}</p>
+    <p><strong>Profession:</strong>
+      ${safe(state.profession?.name || state.profession || "Unknown")}</p>
+    <p><strong>Mission Duration:</strong>
+      ${state.sol} sols</p>
+
+    <h3>🔬 Scientific Achievements</h3>
+    <p><strong>Completed:</strong>
+      ${completed.length} / ${total}
+      (${researchRate}%)</p>
+    <ul>${researchList}</ul>
+
+    <h3>🧭 Your Mission Decisions</h3>
+    <p>You made ${state.decisions.length}
+       recorded decisions during this mission.</p>
+    <ul>${decisionList}</ul>
+
+    <h3>🛠 Final Resource Status</h3>
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:8px;
+    ">
+      ${resourceList}
+    </div>
+
+    <h3>📖 Mission Reflection</h3>
+    <p>
+      ${success
+        ? "You balanced science, resources, and crew safety to complete your journey."
+        : "Space exploration is challenging. Every decision teaches us how to prepare for future missions."}
+    </p>
+
+    <div class="quote">
+      <p>“${safe(selectedQuote.quote)}”</p>
+      <strong>— ${safe(selectedQuote.author)}</strong>
+    </div>
+  `;
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
 </script>
 </body>
 </html>
