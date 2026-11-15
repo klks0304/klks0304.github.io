@@ -1613,7 +1613,7 @@ function getEventPool() {
   // ===== Common solar storm (all locations, more relevant in transit & surface) =====
   if (stage <= 4) {
     pool.push({
-      id: "solar_storm",
+      id:"solar_particle_event",
       title: "Solar Particle Event",
       desc: state.donki && state.donki.length > 0
           ? `Solar particle alert! Help your crew stay safe!! NASA saw this on ${state.donki[0].date ? state.donki[0].date.slice(0, 10) : "a recent day"}.`
