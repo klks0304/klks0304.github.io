@@ -1627,6 +1627,23 @@ const researchSources = {
     label: "NASA RadLab — Radiation Data",
     url: "https://visualization.osdr.nasa.gov/radlab/gui/data-api/"
   }
+  toys: {
+    label: "NASA Toys in Space (STS-51D)",
+    url: "https://www.nasa.gov/mission/sts-51d/"
+  },
+  soda: {
+    label: "NASA STS-51F Carbonated Beverage",
+    url: "https://www.nasa.gov/mission/sts-51f/"
+  },
+  moon_gravity: {
+    label: "NASA Moon Gravity",
+    url: "https://www.nasa.gov/general/how-much-would-you-weigh-on-other-planets/"
+  },
+  mars_gravity: {
+    label: "NASA Mars Gravity",
+    url: "https://www.nasa.gov/general/how-much-would-you-weigh-on-other-planets/"
+  }
+};
 };
 
 // 所有項目都是根據真實研究改編的遊戲活動。
@@ -1712,7 +1729,25 @@ const experimentsByType = {
       "lettuce",
       "Test a simulated leaf sample for microbes before snack time.",
       { power: 20 }
-    )
+    ),
+    makeResearch(
+      "toys_in_space",
+      "Toys in Space",
+      "destination",
+      "basic",
+      "toys",
+      "Watch a spinning top and a yo-yo float in microgravity. See how they behave without gravity pulling them down.",
+      {}
+    ),
+    makeResearch(
+      "soda_in_space",
+      "Soda in Space",
+      "destination",
+      "basic",
+      "soda",
+      "Try special space soda cans. In microgravity, bubbles stay mixed in the drink and astronauts get wet burps!",
+      {}
+    ),
   ],
 
   moon: [
