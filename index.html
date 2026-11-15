@@ -2716,39 +2716,42 @@ function resolveEvent(idx, token) {
 
 function endMission(success, reason = "") {
   state.running = false;
+  clearInterval(state.interval);
   if (state.interval) clearInterval(state.interval);
 
   document.getElementById("game-screen").classList.add("hidden");
   document.getElementById("end-screen").classList.remove("hidden");
+  const gameScreen = document.getElementById("game-screen");
+  const endScreen = document.getElementById("end-screen");
+  
+  if (gameScreen) gameScreen.classList.add("hidden");
+  if (endScreen) endScreen.classList.remove("hidden");
 
+  document.getElementById("end-title").textContent = success
+    ? "Returned to Earth — Mission Complete"
+    : "Mission Failed";
   const titleEl = document.getElementById("end-title");
   const summaryEl = document.getElementById("end-summary");
 
-  const percent = state.maxExperiments > 0
-    ? Math.round(state.experimentsDone / state.maxExperiments * 100)
-    : 0;
-
+  document.getElementById("end-summary").innerHTML = `
+    <p>${success ? "You successfully returned to Earth!" : "Mission ended: " + (reason || "Unknown reason")}</p>
+    <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
+    <p><strong>Time:</strong> ${state.sol} sols</p>
+    <p><strong>Research:</strong> ${state.experimentsDone} / ${state.maxExperiments}</p>
+    <button onclick="location.reload()" style="margin-top:16px;">Start Over</button>
+  `;
   if (titleEl) {
     titleEl.textContent = success
-      ? "Welcome Home!"
-      : "Mission Ended";
+      ? "Returned to Earth — Mission Complete"
+      : "Mission Failed";
   }
 
   if (summaryEl) {
     summaryEl.innerHTML = `
-      <div style="text-align: center; margin-bottom: 16px;">
-        <img src="https://images-assets.nasa.gov/image/iss040e080183/iss040e080183~medium.jpg" 
-             alt="Earth from space" 
-             style="width: 220px; height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 12px;">
-      </div>
-      <p style="text-align: center; font-size: 1.1rem;">
-        ${success ? "You returned to Earth safely!" : "The mission ended early."}
-      </p>
-      <p style="text-align: center;">
-        <strong>${state.location?.name || "Unknown"}</strong><br>
-        ${state.sol} sols · Research ${state.experimentsDone || 0}/${state.maxExperiments || 0} (${percent}%)
-      </p>
-      ${!success && reason ? `<p style="text-align: center; color: #ffa726;">${reason}</p>` : ""}
+      <p>${success ? "You successfully returned to Earth!" : "Mission ended: " + (reason || "Unknown reason")}</p>
+      <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
+      <p><strong>Time:</strong> ${state.sol} sols</p>
+      <p><strong>Research:</strong> ${state.experimentsDone || 0} / ${state.maxExperiments || 0}</p>
     `;
   }
 }
