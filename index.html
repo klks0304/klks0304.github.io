@@ -1940,12 +1940,12 @@ function buildMissionExperiments(location) {
     exp => exp.category === "basic"
   ).length;
 
-  if (basicCount !== minimum) {
+  if (basicCount < minimum) {
     throw new Error(
-      `${location.type}: expected ${minimum} basic research activities.`
+      `${location.type}: requires at least ${minimum} basic research activities.`
     );
   }
-
+  
   const sd = location.stageDays;
 
   const windows = {
