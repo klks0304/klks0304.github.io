@@ -2716,42 +2716,56 @@ function resolveEvent(idx, token) {
 
 function endMission(success, reason = "") {
   state.running = false;
-  clearInterval(state.interval);
   if (state.interval) clearInterval(state.interval);
 
   document.getElementById("game-screen").classList.add("hidden");
   document.getElementById("end-screen").classList.remove("hidden");
-  const gameScreen = document.getElementById("game-screen");
-  const endScreen = document.getElementById("end-screen");
-  
-  if (gameScreen) gameScreen.classList.add("hidden");
-  if (endScreen) endScreen.classList.remove("hidden");
 
-  document.getElementById("end-title").textContent = success
-    ? "Returned to Earth — Mission Complete"
-    : "Mission Failed";
   const titleEl = document.getElementById("end-title");
   const summaryEl = document.getElementById("end-summary");
 
-  document.getElementById("end-summary").innerHTML = `
-    <p>${success ? "You successfully returned to Earth!" : "Mission ended: " + (reason || "Unknown reason")}</p>
-    <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
-    <p><strong>Time:</strong> ${state.sol} sols</p>
-    <p><strong>Research:</strong> ${state.experimentsDone} / ${state.maxExperiments}</p>
-    <button onclick="location.reload()" style="margin-top:16px;">Start Over</button>
-  `;
+  const percent = state.maxExperiments > 0
+    ? Math.round(state.experimentsDone / state.maxExperiments * 100)
+    : 0;
+
+  // Random astronaut to welcome you home
+  const astro = inspirationalAstronauts[
+    Math.floor(Math.random() * inspirationalAstronauts.length)
+  ];
+
   if (titleEl) {
     titleEl.textContent = success
-      ? "Returned to Earth — Mission Complete"
-      : "Mission Failed";
+      ? "Welcome Home!"
+      : "Mission Ended";
   }
 
   if (summaryEl) {
     summaryEl.innerHTML = `
-      <p>${success ? "You successfully returned to Earth!" : "Mission ended: " + (reason || "Unknown reason")}</p>
-      <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
-      <p><strong>Time:</strong> ${state.sol} sols</p>
-      <p><strong>Research:</strong> ${state.experimentsDone || 0} / ${state.maxExperiments || 0}</p>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <p style="margin: 0 0 12px; font-size: 1rem; opacity: 0.9;">
+          See who is welcoming you back to Earth!
+        </p>
+        <img src="${astro.image}" alt="${astro.name}" 
+             style="width: 160px; height: 200px; object-fit: cover; border-radius: 10px; border: 2px solid #4fc3f7; margin-bottom: 10px;">
+        <div style="font-weight: bold; font-size: 1.15rem; margin: 6px 0;">${astro.name}</div>
+        <div style="font-size: 0.85rem; opacity: 0.85; margin-bottom: 8px;">${astro.title}</div>
+        <div style="font-style: italic; background: #1e2a44; padding: 10px 14px; border-left: 4px solid #4fc3f7; border-radius: 4px; margin: 10px auto; max-width: 360px;">
+          “${astro.quote}”
+        </div>
+        <div style="font-size: 0.8rem; margin-top: 6px;">
+          <a href="${astro.imagePage}" target="_blank">Photo</a> · 
+          <a href="${astro.quotePage}" target="_blank">Quote</a>
+        </div>
+      </div>
+
+      <p style="text-align: center; font-size: 1.1rem;">
+        ${success ? "You returned to Earth safely!" : "The mission ended early."}
+      </p>
+      <p style="text-align: center;">
+        <strong>${state.location?.name || "Unknown"}</strong><br>
+        ${state.sol} sols · Research ${state.experimentsDone || 0}/${state.maxExperiments || 0} (${percent}%)
+      </p>
+      ${!success && reason ? `<p style="text-align: center; color: #ffa726;">${reason}</p>` : ""}
     `;
   }
 }
