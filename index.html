@@ -340,21 +340,69 @@ const focuses = [
 ];
 
 const successQuotes = [
-  { quote: "That's one small step for man, one giant leap for mankind.", author: "Neil Armstrong" },
-  { quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", author: "Konstantin Tsiolkovsky" },
-  { quote: "I would like to be remembered as someone who was not afraid to do what she wanted to do.", author: "Sally Ride" },
-  { quote: "Spaceflight is not about the destination, it's about the journey and what we learn along the way.", author: "Peggy Whitson" },
-  { quote: "Never limit yourself because of others’ limited imagination; never limit others because of your own limited imagination.", author: "Mae Jemison" },
-  { quote: "The young people are going to be the ones to take us on to more exciting adventures.", author: "Eileen Collins" },
-  { quote: "I always say to people, do what scares you.", author: "Christina Koch" },
-  { quote: "We came all this way to explore the Moon, and the most important thing is that we discovered the Earth.", author: "William Anders" },
-  { quote: "We leave as we came, and, God willing, we shall return, with peace and hope for all mankind.", author: "Eugene Cernan" }
+  { 
+    quote: "That's one small step for man, one giant leap for mankind.", 
+    author: "Neil Armstrong",
+    image: "https://www.nasa.gov/wp-content/uploads/2023/03/464436main_S69-31741_full.jpg"
+  },
+  { 
+    quote: "The Earth is the cradle of humanity, but mankind cannot stay in the cradle forever.", 
+    author: "Konstantin Tsiolkovsky",
+    image: "https://images-assets.nasa.gov/image/S85-41007/S85-41007~medium.jpg"
+  },
+  { 
+    quote: "I would like to be remembered as someone who was not afraid to do what she wanted to do.", 
+    author: "Sally Ride",
+    image: "https://images-assets.nasa.gov/image/S85-41007/S85-41007~medium.jpg"
+  },
+  { 
+    quote: "Spaceflight is not about the destination, it's about the journey and what we learn along the way.", 
+    author: "Peggy Whitson",
+    image: "https://images-assets.nasa.gov/image/iss016e014181/iss016e014181~medium.jpg"
+  },
+  { 
+    quote: "Never limit yourself because of others’ limited imagination; never limit others because of your own limited imagination.", 
+    author: "Mae Jemison",
+    image: "https://images-assets.nasa.gov/image/S92-40463/S92-40463~medium.jpg"
+  },
+  { 
+    quote: "The young people are going to be the ones to take us on to more exciting adventures.", 
+    author: "Eileen Collins",
+    image: "https://images-assets.nasa.gov/image/S85-41007/S85-41007~medium.jpg"
+  },
+  { 
+    quote: "I always say to people, do what scares you.", 
+    author: "Christina Koch",
+    image: "https://images-assets.nasa.gov/image/NHQ202009160004/NHQ202009160004~medium.jpg"
+  },
+  { 
+    quote: "We came all this way to explore the Moon, and the most important thing is that we discovered the Earth.", 
+    author: "William Anders",
+    image: "https://images-assets.nasa.gov/image/as08-14-2383/as08-14-2383~medium.jpg"
+  },
+  { 
+    quote: "We leave as we came, and, God willing, we shall return, with peace and hope for all mankind.", 
+    author: "Eugene Cernan",
+    image: "https://images-assets.nasa.gov/image/S72-48824/S72-48824~medium.jpg"
+  }
 ];
 
 const failureQuotes = [
-  { quote: "Space is hard. Every mission teaches us something.", author: "NASA Lessons Learned" },
-  { quote: "We choose to go to the Moon not because it is easy, but because it is hard.", author: "John F. Kennedy" },
-  { quote: "The important achievement of Apollo was demonstrating that humanity is not forever chained to this planet.", author: "Neil Armstrong" }
+  { 
+    quote: "Space is hard. Every mission teaches us something.", 
+    author: "NASA Lessons Learned",
+    image: "https://images-assets.nasa.gov/image/iss040e080183/iss040e080183~medium.jpg"
+  },
+  { 
+    quote: "We choose to go to the Moon not because it is easy, but because it is hard.", 
+    author: "John F. Kennedy",
+    image: "https://images-assets.nasa.gov/image/as11-40-5874/as11-40-5874~medium.jpg"
+  },
+  { 
+    quote: "The important achievement of Apollo was demonstrating that humanity is not forever chained to this planet.", 
+    author: "Neil Armstrong",
+    image: "https://www.nasa.gov/wp-content/uploads/2023/03/464436main_S69-31741_full.jpg"
+  }
 ];
 
 const state = {
@@ -2725,47 +2773,41 @@ function endMission(success, reason = "") {
   const summaryEl = document.getElementById("end-summary");
 
   const percent = state.maxExperiments > 0
-    ? Math.round(state.experimentsDone / state.maxExperiments * 100)
+    ? Math.round((state.experimentsDone || 0) / state.maxExperiments * 100)
     : 0;
 
-  // Random astronaut to welcome you home
-  const astro = inspirationalAstronauts[
-    Math.floor(Math.random() * inspirationalAstronauts.length)
-  ];
+  const quotes = success ? successQuotes : failureQuotes;
+  const quote = quotes[Math.floor(Math.random() * quotes.length)];
 
   if (titleEl) {
-    titleEl.textContent = success
-      ? "Welcome Home!"
-      : "Mission Ended";
+    titleEl.textContent = success ? "Welcome Home!" : "Mission Ended";
   }
 
   if (summaryEl) {
     summaryEl.innerHTML = `
-      <div style="text-align: center; margin-bottom: 20px;">
-        <p style="margin: 0 0 12px; font-size: 1rem; opacity: 0.9;">
-          See who is welcoming you back to Earth!
-        </p>
-        <img src="${astro.image}" alt="${astro.name}" 
-             style="width: 160px; height: 200px; object-fit: cover; border-radius: 10px; border: 2px solid #4fc3f7; margin-bottom: 10px;">
-        <div style="font-weight: bold; font-size: 1.15rem; margin: 6px 0;">${astro.name}</div>
-        <div style="font-size: 0.85rem; opacity: 0.85; margin-bottom: 8px;">${astro.title}</div>
-        <div style="font-style: italic; background: #1e2a44; padding: 10px 14px; border-left: 4px solid #4fc3f7; border-radius: 4px; margin: 10px auto; max-width: 360px;">
-          “${astro.quote}”
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+        <div>
+          <p style="font-size: 1.1rem; margin-top: 0;">
+            ${success ? "You returned to Earth safely!" : "The mission ended early."}
+          </p>
+          <p><strong>Destination:</strong> ${state.location?.name || "Unknown"}</p>
+          <p><strong>Time:</strong> ${state.sol} sols</p>
+          <p><strong>Research:</strong> ${state.experimentsDone || 0} / ${state.maxExperiments || 0} (${percent}%)</p>
+          ${!success && reason ? `<p style="color: #ffa726;">${reason}</p>` : ""}
         </div>
-        <div style="font-size: 0.8rem; margin-top: 6px;">
-          <a href="${astro.imagePage}" target="_blank">Photo</a> · 
-          <a href="${astro.quotePage}" target="_blank">Quote</a>
+
+        <div style="text-align: center; background: #1a2238; padding: 16px; border-radius: 10px;">
+          <p style="margin: 0 0 10px; font-size: 0.95rem; opacity: 0.9;">
+            See who is welcoming you back to Earth!
+          </p>
+          <img src="${quote.image}" alt="${quote.author}" 
+               style="width: 140px; height: 170px; object-fit: cover; border-radius: 8px; border: 2px solid #4fc3f7; margin-bottom: 10px;">
+          <div style="font-style: italic; background: #1e2a44; padding: 10px 12px; border-left: 4px solid #4fc3f7; border-radius: 4px; margin: 10px 0; text-align: left; font-size: 0.9rem;">
+            “${quote.quote}”
+          </div>
+          <div style="font-weight: bold;">— ${quote.author}</div>
         </div>
       </div>
-
-      <p style="text-align: center; font-size: 1.1rem;">
-        ${success ? "You returned to Earth safely!" : "The mission ended early."}
-      </p>
-      <p style="text-align: center;">
-        <strong>${state.location?.name || "Unknown"}</strong><br>
-        ${state.sol} sols · Research ${state.experimentsDone || 0}/${state.maxExperiments || 0} (${percent}%)
-      </p>
-      ${!success && reason ? `<p style="text-align: center; color: #ffa726;">${reason}</p>` : ""}
     `;
   }
 }
