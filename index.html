@@ -165,6 +165,38 @@
     <button onclick="startMission()" style="margin-top: 16px;">Confirm and Launch</button>
   </div>
   
+  <div id="game-screen" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span id="stage-badge" class="stage-badge">01 Launch & Early Orbit</span>
+          <span id="sol-display" style="margin-left:12px;">Sol 0</span>
+        </div>
+        <div>
+          <button class="secondary" onclick="togglePause()">⏸ Pause</button>
+          <button class="secondary" onclick="setSpeed(1)">1×</button>
+          <button class="secondary" onclick="setSpeed(2)">2×</button>
+          <button class="secondary" onclick="setSpeed(4)">4×</button>
+        </div>
+      </div>
+      <p id="player-info" style="margin:8px 0 0;"></p>
+      <p id="mission-progress" style="margin:4px 0 0;font-size:0.9rem;"></p>
+    </div>
+  
+    <div class="columns">
+      <div>
+        <div class="card"><h3>System Status</h3><div id="resource-bars"></div></div>
+        <div class="card"><h3>Focus</h3><div id="focus-buttons"></div></div>
+      </div>
+      <div>
+        <div class="card"><h3>Mission Log</h3><div id="log" class="log"></div></div>
+        <div id="event-area" class="card nominal">
+          <div class="status-title" id="status-title">All systems nominal</div>
+          <div id="event-content">No immediate action required.</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="end-screen" class="card hidden">
     <h2 id="end-title"></h2>
     <div id="end-summary" class="end-summary"></div>
