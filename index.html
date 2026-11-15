@@ -1141,18 +1141,23 @@ function advanceOneSol() {
   }
 
   if (state.stage === 5 && state.sol >= sd.end) {
-    state.stage = 6;
-    updateStage();
+  state.stage = 6;
+  updateStage();
 
-    // 關閉過期研究，不補發完成數。
-    queueDueResearch();
-
-    addLog("Successfully returned to Earth!", true);
-
-    endMission(true);
-    return;
+  // 結束時取消尚未完成的研究
+  for (const exp of state.missionExperiments) {
+    if (exp.status === "pending") {
+      cancelExperiment(
+        exp.id,
+        "The mission has ended before this research was completed."
+      );
+    }
   }
 
+  addLog("Successfully returned to Earth!", true);
+  endMission(true);
+  return;
+}
   updateStage();
 
   document.getElementById("sol-display").textContent =
