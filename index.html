@@ -178,8 +178,13 @@
           <button class="secondary" onclick="setSpeed(4)">4×</button>
         </div>
       </div>
-      <p id="player-info" style="margin:8px 0 0;"></p>
-      <p id="mission-progress" style="margin:4px 0 0;font-size:0.9rem;"></p>
+      <div style="display: flex; align-items: center; gap: 12px; margin: 8px 0;">
+      <img id="player-avatar" src="" alt="Avatar" 
+           style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #4fc3f7;">
+      <div>
+        <p id="player-info" style="margin: 0;"></p>
+        <p id="mission-progress" style="margin: 4px 0 0; font-size: 0.9rem;"></p>
+      </div>
     </div>
   
     <div class="columns">
@@ -751,7 +756,18 @@ async function startMission() {
 
   document.getElementById("player-info").textContent =
     `${state.profession.name} · ${state.location.name}`;
-
+  const avatars = [
+    "image/a.jpg",
+    "image/b.jpg",
+    "image/c.jpg",
+    "image/d.jpg",
+    "image/e.jpg",
+    "image/f.jpg"
+  ];
+  
+  const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+  document.getElementById("player-avatar").src = randomAvatar;
+    
   updateStage();
   renderBars();
   renderFocusButtons();
