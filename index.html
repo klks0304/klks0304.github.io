@@ -1049,7 +1049,11 @@ function processMissionQueue() {
 }
 
 function checkMissionResources() {
-  for (const [key, value] of Object.entries(state.resources)) {
+  const criticalResources = ["oxygen", "power", "food", "water"];
+
+  for (const key of criticalResources) {
+    const value = state.resources[key];
+
     if (!Number.isFinite(value) || value <= 0) {
       endMission(
         false,
