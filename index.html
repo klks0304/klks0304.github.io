@@ -1105,19 +1105,35 @@ function advanceOneSol() {
     shield: 0.2,
     morale: 0.15
   };
-
+  
+  // 士氣低落時，生存資源消耗增加 10%。
+  const moralePenalty =
+    state.resources.morale <= 50 ? 1.1 : 1;
+  
+  // Shield 和 Morale 維持原本消耗，避免懲罰無限累積。
   for (const [key, cost] of Object.entries(dailyCosts)) {
+    const multiplier =
+      ["oxygen", "power", "food", "water"].includes(key)
+        ? moralePenalty
+        : 1;
+  
     state.resources[key] = Math.max(
       0,
-      state.resources[key] - cost
+      state.resources[key] - cost * multiplier
     );
   }
 
   const protection = state.resources.shield / 100;
 
+  // Shield 歸零時，每個 Sol 額外增加 5 點輻射暴露。
+  const shieldPenalty =
+    state.resources.shield <= 0 ? 5 : 0;
+  
   state.radiationExposure = Math.min(
     100,
-    state.radiationExposure + 0.55 * (1 - protection)
+    state.radiationExposure +
+      0.55 * (1 - protection) +
+      shieldPenalty
   );
 
   if (state.focus) {
@@ -2582,6 +2598,7 @@ function resolveEvent(idx, token) {
   }
 
   const choice = ev.options[finalIdx];
+  const moraleBeforeChoice = state.resources.morale;
 
   // 先鎖定，避免重複點擊造成重複計分或扣資源。
   ev.resolved = true;
@@ -2662,9 +2679,9 @@ function resolveEvent(idx, token) {
       );
     }
 
+    
     if (exp) {
       if (choice.researchAction === "rest") {
-        // 休息：直接取消本項，不完成、不重試。
         exp.participation = "rested";
 
         outcome =
@@ -2677,14 +2694,26 @@ function resolveEvent(idx, token) {
         );
 
       } else if (choice.researchAction === "complete") {
+        let researchResult = choice.researchResult;
+
+        if (
+          moraleBeforeChoice <= 0 &&
+          choice.text === "Collect the full data"
+        ) {
+          researchResult = "Basic observations recorded. " +
+            "Low crew morale reduced research efficiency.";
+
+          outcome =
+            `${exp.name}: completed with reduced research quality.`;
+        } else {
+          outcome =
+            `${exp.name}: completed. ${researchResult || ""}`;
+        }
+
         completeExperiment(
           exp.id,
-          choice.researchResult
+          researchResult
         );
-
-        outcome =
-          `${exp.name}: completed. ` +
-          `${choice.researchResult || ""}`;
 
       } else if (choice.researchAction === "postpone") {
         if (state.sol < getResearchDeadline(exp)) {
@@ -2712,12 +2741,9 @@ function resolveEvent(idx, token) {
 
         cancelExperiment(exp.id, outcome);
       }
-
-    } else {
-      outcome = `Final decision: ${choice.text}`;
     }
 
-    if (ev.followUp?.length) {
+      if (ev.followUp?.length) {
       state.pendingFollowUps.push(ev.followUp[0]);
     }
   }
