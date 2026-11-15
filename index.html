@@ -1922,28 +1922,22 @@ function buildMissionExperiments(location) {
     throw new Error(`Unknown destination type: ${location.type}`);
   }
 
-  if (definitions.length !== location.experimentTarget) {
-    throw new Error(
-      `${location.type}: expected ${location.experimentTarget} research activities, ` +
-      `but found ${definitions.length}.`
-    );
-  }
+  // 隨機抽樣：每次玩出現不同實驗
+  const target = location.experimentTarget || definitions.length;
+  const shuffled = [...definitions].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, Math.min(target, shuffled.length));
 
-  const ids = definitions.map(exp => exp.id);
+  const ids = selected.map(exp => exp.id);
 
   if (new Set(ids).size !== ids.length) {
     throw new Error("Duplicate research IDs found.");
   }
 
-  const minimum = Math.ceil(location.experimentTarget * 0.6);
-  const basicCount = definitions.filter(
-    exp => exp.category === "basic"
-  ).length;
+  const minimum = Math.ceil(selected.length * 0.6);
+  const basicCount = selected.filter(exp => exp.category === "basic").length;
 
   if (basicCount < minimum) {
-    throw new Error(
-      `${location.type}: requires at least ${minimum} basic research activities.`
-    );
+    console.warn(`${location.type}: basic activities may be low after random selection`);
   }
   
   const sd = location.stageDays;
@@ -1957,7 +1951,7 @@ function buildMissionExperiments(location) {
   const result = [];
 
   for (const phase of ["outbound", "destination", "return"]) {
-    const group = definitions.filter(exp => exp.phase === phase);
+    const group = selected.filter(exp => exp.phase === phase);
 
     const days = distributeDays(
       windows[phase][0],
@@ -1979,9 +1973,7 @@ function buildMissionExperiments(location) {
     });
   }
 
-  return result.sort(
-    (a, b) => a.scheduledDay - b.scheduledDay
-  );
+  return result.sort((a, b) => a.scheduledDay - b.scheduledDay);
 }
 
 // 唯一的完成數同步入口。
