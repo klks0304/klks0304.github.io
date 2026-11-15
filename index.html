@@ -990,7 +990,7 @@ function processMissionQueue() {
       setEventStatus(
         "nominal",
         "All systems nominal",
-        "Ready for the next mission day."
+        "Ready for the next mission sol."
       );
     }
     
@@ -2272,7 +2272,7 @@ function getOSDRDecisionEvent(experimentId) {
       ...(canDelay
         ? [
             {
-              text: "Try again next mission day",
+              text: "Try again next mission sol",
               effect: {},
               tradeoff:
                 "Not completed yet. Try again tomorrow before this phase ends.",
@@ -2638,7 +2638,7 @@ function resolveEvent(idx, token) {
           );
 
           outcome =
-            `${exp.name}: postponed until the next mission day.`;
+            `${exp.name}: postponed until the next mission sol.`;
 
         } else {
           outcome =
