@@ -455,7 +455,7 @@ async function checkDONKI() {
     state.donki = [];
     state.donkiStatus = "error";
 
-    console.error(
+    console.warn(
       "DONKI unavailable:",
       error.message
     );
@@ -497,7 +497,7 @@ async function fetchAPOD() {
     state.apod = null;
     state.apodStatus = "error";
 
-    console.error(
+    console.warn(
       "APOD unavailable:",
       error.message
     );
