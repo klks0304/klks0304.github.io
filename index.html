@@ -108,78 +108,40 @@
   <h1>🚀 1in746 — The Hidden Figures</h1>
   <p class="subtitle">From Launch to Return · Engineering Trade-offs with Real NASA Data</p>
 
-  <div id="intro-screen" class="card" style="padding: 16px;">
-    <h2 style="margin: 0 0 10px; font-size: 1.4rem;">🚀 Junior Astronaut Mission Trainer</h2>
+  <<div id="intro-screen" class="card" style="padding: 16px;">
+    <h2 style="margin: 0 0 12px; font-size: 1.4rem;">🚀 Junior Astronaut Mission Trainer</h2>
     
-    <p style="margin: 6px 0;">You wake up in a spacecraft. The system activates — you are now an astronaut!</p>
-    
-    <p style="margin: 6px 0;"><strong>What's going on?</strong></p>
-    <p style="margin: 6px 0;">Watch the video, or start your mission soon!</p>
-    
-    <div class="intro-video" style="margin: 12px auto; max-width: 480px;">
-      <video id="mission-intro-video" controls playsinline preload="metadata" style="width: 100%; border-radius: 8px; max-height: 220px;">
-        <source src="assets/mission-intro.mp4" type="video/mp4">
-      </video>
-      <div class="video-speed-controls" style="margin-top: 6px; font-size: 0.85rem;">
-        <span>Speed:</span>
-        <button type="button" onclick="setVideoSpeed(1)" style="padding: 4px 10px;">1x</button>
-        <button type="button" onclick="setVideoSpeed(1.5)" style="padding: 4px 10px;">1.5x</button>
-        <button type="button" onclick="setVideoSpeed(2)" style="padding: 4px 10px;">2x</button>
-      </div>
-    </div>
-  
-    <p style="margin: 8px 0;"><strong>Your mission:</strong> Manage resources, do science, and return safely.</p>
-  
-    <div class="fact" style="margin: 10px 0; padding: 8px 12px; font-size: 0.85rem;">
-      <strong>Why “1 in 746”?</strong> Only about 746 humans have reached space. This game lets you experience that rare journey.
-    </div>
-  
-    <p style="margin: 8px 0; font-size: 0.85rem;">
-      <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
-      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
-    </p>
-  
-    <button onclick="startBirth()" style="margin-top: 8px; font-size: 1.05rem; padding: 12px 20px;">Start Random Assignment</button>
-  </div>
-
-  <div id="birth-result" class="card hidden">
-    <h2>Your Mission Identity</h2>
-    <div class="columns">
-      <div id="birth-info"></div>
-      <div id="astronaut-inspiration">
-      </div>
-    </div>
-    <button onclick="startMission()">Confirm and Launch</button>
-  </div>
-
-  <div id="game-screen" class="hidden">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <span id="stage-badge" class="stage-badge">01 Launch & Early Orbit</span>
-          <span id="sol-display" style="margin-left:12px;">Sol 0</span>
-        </div>
-        <div>
-          <button class="secondary" onclick="togglePause()">⏸ Pause</button>
-          <button class="secondary" onclick="setSpeed(1)">1×</button>
-          <button class="secondary" onclick="setSpeed(2)">2×</button>
-          <button class="secondary" onclick="setSpeed(4)">4×</button>
-        </div>
-      </div>
-      <p id="player-info" style="margin:8px 0 0;"></p>
-      <p id="mission-progress" style="margin:4px 0 0;font-size:0.9rem;"></p>
-    </div>
-
-    <div class="columns">
+    <div class="columns" style="align-items: start; gap: 20px;">
+      <!-- 左邊：文字 -->
       <div>
-        <div class="card"><h3>System Status</h3><div id="resource-bars"></div></div>
-        <div class="card"><h3>Focus</h3><div id="focus-buttons"></div></div>
+        <p style="margin: 6px 0;">You wake up in a spacecraft. The system activates — you are now an astronaut!</p>
+        <p style="margin: 8px 0;"><strong>What's going on?</strong></p>
+        <p style="margin: 6px 0;">Watch the video, or start your mission soon!</p>
+        
+        <p style="margin: 10px 0;"><strong>Your mission:</strong> Manage resources, do science, and return safely.</p>
+  
+        <div class="fact" style="margin: 12px 0; padding: 8px 12px; font-size: 0.85rem;">
+          <strong>Why “1 in 746”?</strong> Only about 746 humans have reached space. This game lets you experience that rare journey.
+        </div>
+  
+        <p style="margin: 8px 0; font-size: 0.85rem;">
+          <a href="https://api.nasa.gov/" target="_blank">NASA Open APIs</a> · 
+          <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">DONKI</a>
+        </p>
+  
+        <button onclick="startBirth()" style="margin-top: 10px; font-size: 1.05rem; padding: 12px 20px;">Start Random Assignment</button>
       </div>
-      <div>
-        <div class="card"><h3>Mission Log</h3><div id="log" class="log"></div></div>
-        <div id="event-area" class="card nominal">
-          <div class="status-title" id="status-title">All systems nominal</div>
-          <div id="event-content">No immediate action required.</div>
+  
+      <!-- 右邊：影片 -->
+      <div class="intro-video" style="margin: 0;">
+        <video id="mission-intro-video" controls playsinline preload="metadata" style="width: 100%; border-radius: 8px; max-height: 320px;">
+          <source src="assets/mission-intro.mp4" type="video/mp4">
+        </video>
+        <div class="video-speed-controls" style="margin-top: 8px; font-size: 0.85rem; justify-content: center;">
+          <span>Speed:</span>
+          <button type="button" onclick="setVideoSpeed(1)" style="padding: 4px 10px;">1x</button>
+          <button type="button" onclick="setVideoSpeed(1.5)" style="padding: 4px 10px;">1.5x</button>
+          <button type="button" onclick="setVideoSpeed(2)" style="padding: 4px 10px;">2x</button>
         </div>
       </div>
     </div>
